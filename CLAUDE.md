@@ -7,6 +7,35 @@ see pipeline below) plus QML styling files. Fully static frontend, hostable
 anywhere later (local dev now, Cloudflare/S3/Pages/etc. eventually), zero
 runtime dependency on the database.
 
+## Workflow
+
+Ground rules for how this project gets built, session to session:
+
+- **Verify before documenting.** A feature isn't "done" in `PROGRESS.md` or
+  a commit message until it's been run, not just written. For this project
+  that means serving via `serve.bat` and exercising it in a real browser,
+  or driving it headlessly (this session used the Chrome DevTools Protocol
+  directly via Python + `websocket-client`, since neither Node/Playwright
+  nor `chromium-cli` are available on this machine — see `PROGRESS.md` for
+  the pattern). A clean console and the expected DOM/network state are the
+  bar, not "the code looks right." This caught 3 real bugs in v1 that a
+  read-through would have missed.
+- **`PROGRESS.md` is the source of truth across sessions.** Update it at
+  the end of every iteration: what changed, why, what's still open. If it
+  disagrees with conversation memory, the file wins — re-read it rather
+  than trusting recall, especially at the start of a new session.
+- **One small piece at a time.** Plan → implement → verify → update
+  `PROGRESS.md` → `git commit`. Don't batch unrelated changes into one
+  commit; each commit should be revertible on its own.
+- **Write `PROGRESS.md` for a cold read.** No "as discussed above" — every
+  entry should stand on its own to a session that has never seen the
+  conversation that produced it. The intended way to resume work in a new
+  thread is literally: *"Read CLAUDE.md and PROGRESS.md, then let's do
+  \<next thing\>."*
+- **Fresh thread after each committed iteration.** Once a piece is
+  committed and `PROGRESS.md` reflects it, prefer starting a new
+  conversation over continuing a long one for the next piece.
+
 ## Project folder structure
 ```
 nl_webmap/
