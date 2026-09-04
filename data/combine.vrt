@@ -1,0 +1,30 @@
+<OGRVRTDataSource>
+  <OGRVRTLayer name="we">
+    <SrcDataSource>we.fgb</SrcDataSource>
+    <SrcLayer>demo.mv_we</SrcLayer>
+  </OGRVRTLayer>
+  <OGRVRTLayer name="adressen">
+    <SrcDataSource>adressen.fgb</SrcDataSource>
+    <SrcLayer>demo.v_adressen</SrcLayer>
+  </OGRVRTLayer>
+  <OGRVRTLayer name="grundbuch_ansicht">
+    <SrcDataSource>grundbuch_ansicht.fgb</SrcDataSource>
+    <SrcLayer>demo.v_grundbuch_ansicht</SrcLayer>
+  </OGRVRTLayer>
+  <OGRVRTLayer name="we_ansicht">
+    <SrcDataSource>we_ansicht.fgb</SrcDataSource>
+    <SrcLayer>demo.v_we_ansicht</SrcLayer>
+  </OGRVRTLayer>
+  <OGRVRTLayer name="gebaeude_ansicht">
+    <SrcDataSource>gebaeude_ansicht.fgb</SrcDataSource>
+    <SrcLayer>demo.v_gebaeude_ansicht</SrcLayer>
+  </OGRVRTLayer>
+  <OGRVRTLayer name="flst_grundbuchblaetter">
+    <SrcDataSource>flst_grundbuchblaetter.fgb</SrcDataSource>
+    <SrcLayer>demo.v_flst_grundbuchblaetter</SrcLayer>
+  </OGRVRTLayer>
+  <OGRVRTLayer name="flurstuecke">
+    <SrcDataSource>flurstuecke.fgb</SrcDataSource>
+    <SrcLayer>demo.v_flurstuecke</SrcLayer>
+  </OGRVRTLayer>
+</OGRVRTDataSource>

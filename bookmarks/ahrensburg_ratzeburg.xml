@@ -1,0 +1,146 @@
+<!DOCTYPE qgis_bookmarks>
+<qgis_bookmarks>
+  <bookmark>
+    <id>{0c977680-ef0a-458b-83cb-da8d20193316}</id>
+    <name>Ratzeburg</name>
+    <project>_Standorte</project>
+    <xmin>613869.4063000000314787</xmin>
+    <ymin>5948964.84049999993294477</ymin>
+    <xmax>619737.46279999997932464</xmax>
+    <ymax>5954592.72209999989718199</ymax>
+    <rotation>0</rotation>
+    <sr_id>2105</sr_id>
+  </bookmark>
+  <bookmark>
+    <id>{efa503b1-8c22-41dc-8997-2227f69c8db8}</id>
+    <name>Ahrensburg</name>
+    <project>_Standorte</project>
+    <xmin>578676.70739999995566905</xmin>
+    <ymin>5945347.68350000027567148</ymin>
+    <xmax>584656.29079999995883554</xmax>
+    <ymax>5951082.52730000019073486</ymax>
+    <rotation>0</rotation>
+    <sr_id>2105</sr_id>
+  </bookmark>
+  <bookmark>
+    <id>{327430bf-3787-4a27-a2dd-7eff849f0e04}</id>
+    <name>AH: Schäferweg</name>
+    <project>Ahrensburg</project>
+    <xmin>581840.67489999998360872</xmin>
+    <ymin>5948027.13300000037997961</ymin>
+    <xmax>582332.95050000003539026</xmax>
+    <ymax>5948351.45139999967068434</ymax>
+    <rotation>0</rotation>
+    <sr_id>2105</sr_id>
+  </bookmark>
+  <bookmark>
+    <id>{df8b7184-dcc4-479f-9d9c-8e9cda073f26}</id>
+    <name>AH: Rondeel - Neue Straße</name>
+    <project>Ahrensburg</project>
+    <xmin>581612.06140000000596046</xmin>
+    <ymin>5947587.8951000003144145</ymin>
+    <xmax>582308.44480000005569309</xmax>
+    <ymax>5948046.68259999994188547</ymax>
+    <rotation>0</rotation>
+    <sr_id>2105</sr_id>
+  </bookmark>
+  <bookmark>
+    <id>{366e72c6-5c33-41f7-824a-cde166713b58}</id>
+    <name>AH: Hermann-Löns-Straße / Gerhart-Hauptmann-Straße</name>
+    <project>Ahrensburg</project>
+    <xmin>580845.65830000001005828</xmin>
+    <ymin>5948047.93240000028163195</ymin>
+    <xmax>581849.78249999997206032</xmax>
+    <ymax>5948644.35620000027120113</ymax>
+    <rotation>0</rotation>
+    <sr_id>2105</sr_id>
+  </bookmark>
+  <bookmark>
+    <id>{fa8e3a8e-8c96-4e79-8349-a8f6039cccd2}</id>
+    <name>AH: Gartenholz / Syltring</name>
+    <project>Ahrensburg</project>
+    <xmin>582077.63679999997839332</xmin>
+    <ymin>5949314.13370000012218952</ymin>
+    <xmax>582774.02020000002812594</xmax>
+    <ymax>5949772.92119999974966049</ymax>
+    <rotation>0</rotation>
+    <sr_id>2105</sr_id>
+  </bookmark>
+  <bookmark>
+    <id>{b7bfa7f9-830e-4bb0-977f-234d95fc4587}</id>
+    <name>AH: Ohlendamm / Waldemar-Bonsels-Weg</name>
+    <project>Ahrensburg</project>
+    <xmin>580282.21479999995790422</xmin>
+    <ymin>5946720.48900000005960464</ymin>
+    <xmax>580978.59820000000763685</xmax>
+    <ymax>5947179.27649999968707561</ymax>
+    <rotation>0</rotation>
+    <sr_id>2105</sr_id>
+  </bookmark>
+  <bookmark>
+    <id>{8b4b2c4c-5c1f-49c3-b893-86aefb1e0195}</id>
+    <name>AH: Elsterweg / Elsterstieg</name>
+    <project>Ahrensburg</project>
+    <xmin>581406.20819999999366701</xmin>
+    <ymin>5945626.51879999972879887</ymin>
+    <xmax>581928.49569999997038394</xmax>
+    <ymax>5945955.13129999954253435</ymax>
+    <rotation>0</rotation>
+    <sr_id>2105</sr_id>
+  </bookmark>
+  <bookmark>
+    <id>{96fb0a94-6669-4c88-b9bc-8bec884d5ed4}</id>
+    <name>RZ: Bahnhofsallee / Berliner Straße / Matthias-Claudius-Straße</name>
+    <project>Ratzeburg</project>
+    <xmin>614919.29390000004786998</xmin>
+    <ymin>5951247.59850000031292439</ymin>
+    <xmax>615406.7621999999973923</xmax>
+    <ymax>5951568.74980000033974648</ymax>
+    <rotation>0</rotation>
+    <sr_id>2105</sr_id>
+  </bookmark>
+  <bookmark>
+    <id>{15a8954e-c59f-49f9-a2d0-3bec75c916dd}</id>
+    <name>RZ: Friedrich-Ebert-Straße / Scheffelstraße</name>
+    <project>Ratzeburg</project>
+    <xmin>615311.08380000002216548</xmin>
+    <ymin>5951281.47520000021904707</ymin>
+    <xmax>615694.09470000001601875</xmax>
+    <ymax>5951533.80829999968409538</ymax>
+    <rotation>0</rotation>
+    <sr_id>2105</sr_id>
+  </bookmark>
+  <bookmark>
+    <id>{703333ec-a301-4bb2-b94d-c38a0ed12fa1}</id>
+    <name>RZ: Wasserstraße / Töpferstraße / Kl. Kreuzstraße / Zum Süßen Grund</name>
+    <project>Ratzeburg</project>
+    <xmin>616821.96420000004582107</xmin>
+    <ymin>5951485.50310000032186508</ymin>
+    <xmax>617274.61340000003110617</xmax>
+    <ymax>5951783.71490000002086163</ymax>
+    <rotation>0</rotation>
+    <sr_id>2105</sr_id>
+  </bookmark>
+  <bookmark>
+    <id>{776dac5a-3846-4a9b-bf97-415bbc7381ff}</id>
+    <name>RZ: Seedorfer Straße / Schmilauer Straße</name>
+    <project>Ratzeburg</project>
+    <xmin>617770.7900000000372529</xmin>
+    <ymin>5950408.03799999970942736</ymin>
+    <xmax>618293.07750000001396984</xmax>
+    <ymax>5950752.12860000040382147</ymax>
+    <rotation>0</rotation>
+    <sr_id>2105</sr_id>
+  </bookmark>
+  <bookmark>
+    <id>{cf245ad8-bf49-49cb-8dba-9357ac0671f2}</id>
+    <name>AH: Bredenbekweg / Am Neuen Teich</name>
+    <project>Ahrensburg</project>
+    <xmin>579617.52480000001378357</xmin>
+    <ymin>5947077.1946000000461936</ymin>
+    <xmax>580477.34429999999701977</xmax>
+    <ymax>5947618.17520000040531158</ymax>
+    <rotation>0</rotation>
+    <sr_id>2105</sr_id>
+  </bookmark>
+</qgis_bookmarks>

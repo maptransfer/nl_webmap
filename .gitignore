@@ -1,0 +1,15 @@
+# Out-of-scope PostGIS -> PMTiles export pipeline.
+# export_pgis_layers.bat contains a plaintext database password, so this whole
+# directory stays local. See README.md for how to re-run the pipeline.
+scripts/
+
+# Regenerable FlatGeobuf intermediates (pipeline inputs, not frontend assets).
+# The frontend only needs data/neue-luebecker.pmtiles, which IS tracked.
+data/*.fgb
+
+# OS / editor cruft
+Thumbs.db
+desktop.ini
+.DS_Store
+.vscode/
+.idea/
