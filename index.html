@@ -1,0 +1,59 @@
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Neue Lübecker – Liegenschaftsübersicht</title>
+<link rel="stylesheet" href="vendor/maplibre-gl.css">
+<link rel="stylesheet" href="css/app.css">
+</head>
+<body>
+
+<div id="map" role="application" aria-label="Karte Neue Lübecker"></div>
+
+<aside id="sidebar" class="sidebar" aria-label="Ebenen und Standorte">
+  <button id="sidebar-toggle" class="sidebar-toggle" type="button"
+          aria-expanded="true" aria-controls="sidebar-body" title="Ebenen ein-/ausblenden">
+    <svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true">
+      <path d="M3 6h18M3 12h18M3 18h18" stroke="currentColor" stroke-width="2" stroke-linecap="round" fill="none"/>
+    </svg>
+  </button>
+
+  <div id="sidebar-body" class="sidebar-body">
+    <header class="sidebar-head">
+      <h1>Neue Lübecker</h1>
+      <p class="sub">Liegenschaftsübersicht</p>
+    </header>
+
+    <section class="views">
+      <h2>Standorte</h2>
+      <div id="view-list" class="view-list"><!-- generated from js/bookmarks.js --></div>
+    </section>
+
+    <section class="layers">
+      <h2>Ebenen</h2>
+      <ul id="layer-list"><!-- generated from js/layers.js --></ul>
+    </section>
+
+    <footer class="sidebar-foot">
+      <p>Daten: PostGIS-Export · ALKIS · SAP</p>
+    </footer>
+  </div>
+</aside>
+
+<div id="error-banner" class="error-banner" hidden role="alert"></div>
+<div id="hint-toast" class="toast" hidden>
+  <p><strong>Zwei Standorte:</strong> Ahrensburg (105 WiE) und Ratzeburg (14 WiE)
+     liegen ca. 40&nbsp;km auseinander. Nutzen Sie die Standort-Auswahl zum Wechseln.</p>
+  <button id="hint-dismiss" type="button">Verstanden</button>
+</div>
+
+<!-- Debug helper: paste window.__style() output into Maputnik to inspect the
+     generated style, since it is built in JS rather than authored as a static
+     style.json (see js/layers.js). -->
+
+<script src="vendor/maplibre-gl.js"></script>
+<script src="vendor/pmtiles.js"></script>
+<script type="module" src="js/app.js"></script>
+</body>
+</html>

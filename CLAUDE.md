@@ -55,11 +55,18 @@ Before writing any frontend code:
    the tiled attributes confirmed in step 1.
 
 ## Layers in the PMTiles file
-All 7 layers share the same overall extent (Lübeck area, bbox roughly
-10.208,53.654 – 10.788,53.701). Feature counts below are **source feature
-counts** (from the `.fgb` exports pre-tiling) — the PMTiles file itself will
-report higher counts when inspected because polygons are clipped per-tile;
-that's expected, not duplicated data.
+All 7 layers share the same overall bbox (roughly 10.208,53.654 –
+10.788,53.701) — but that bbox is **not one contiguous area**. It spans two
+disjoint towns, **Ahrensburg** (~10.21°E, 105 of 119 Wirtschaftseinheiten)
+and **Ratzeburg** (~10.79°E, 14), about 40 km apart with nothing mapped in
+between. A view fitted to the combined bbox lands on empty countryside at a
+zoom where nothing is legible — the frontend defaults to Ahrensburg and
+offers both towns (plus 11 QGIS-bookmarked sub-areas, see
+`bookmarks/ahrensburg_ratzeburg.xml`) as navigation targets instead of
+fitting the full extent. Feature counts below are **source feature counts**
+(from the `.fgb` exports pre-tiling) — the PMTiles file itself will report
+higher counts when inspected because polygons are clipped per-tile; that's
+expected, not duplicated data.
 
 | Layer (in .pmtiles) | QML file (in qml/) | Source view | Features | Geometry | Notes |
 |---|---|---|---|---|---|
@@ -69,7 +76,7 @@ that's expected, not duplicated data.
 | `we_ansicht` | `v_we_ansicht.qml` | `demo.v_we_ansicht` | 119 | polygon | Same count as `we` — alternate view of same entities. |
 | `gebaeude_ansicht` | `v_gebaeude_ansicht.qml` | `demo.v_gebaeude_ansicht`, filtered on `alkis_oid NOT IN (...)` (excludes buildings already matched via SAP address) | 174 | Multi Polygon | Has `alkis_oid`, `aktualitaet` (date, stored as string in tiles), `funktion`, `nutzungsbezeichnung`. |
 | `flst_grundbuchblaetter` | `v_flst_grundbuchblaetter.qml` | `demo.v_flst_grundbuchblaetter` | 64 | polygon | Same count as `grundbuch_ansicht` — alternate view of same entities. |
-| `flurstuecke` | `v_flurstuecke.qml` | `demo.v_flurstuecke`, filtered `grundbuch_info != ' / '` | 118 | Multi Polygon | Has `we_id_primaer` — QGIS styling was categorized on this field. |
+| `flurstuecke` | `v_flurstuecke.qml` | `demo.v_flurstuecke`, filtered `grundbuch_info != ' / '` | 118 | Multi Polygon | Has `we_id_primaer` (NULL on ~half the rows). **Correction:** the QML renderer is a plain `singleSymbol` — a single yellow fill at 50% opacity, uncategorized. No QML in this project uses a categorized/graduated/rule-based renderer (all 7 are `singleSymbol` or `nullSymbol`) — verified directly against the QML files, not assumed. |
 
 ## Features (v1)
 - Render all layers styled to match QGIS symbology (from `qml/`)
@@ -83,9 +90,28 @@ that's expected, not duplicated data.
 - The PostGIS→PMTiles export pipeline (already done, see below — not part of
   this build unless the data needs re-exporting)
 - Any live database connection from the frontend
-- Deployment/hosting decisions — build assuming local static serving
-  (e.g. `npx serve` or `python -m http.server`); must remain host-agnostic
-  (portable to Cloudflare, S3, GitHub Pages, etc. without code changes)
+- Deployment/hosting decisions — build assuming local static serving; must
+  remain host-agnostic (portable to Cloudflare, S3, GitHub Pages, etc.
+  without code changes)
+
+## Frontend implementation notes (v1, built)
+- **Plain `python -m http.server` does not work for local serving.** PMTiles
+  needs HTTP range requests; Python's built-in server ignores `Range` and
+  answers with the full file, which the pmtiles client treats as a fatal
+  error. Use `serve.bat` / `serve_range.py` (a small stdlib server with real
+  Range support) instead — see `README.md`.
+- `we_ansicht` (`v_we_ansicht.qml`) is **not rendered**. It's `nullSymbol` in
+  QGIS, so its multi-line pink-boxed labels were its only output, and every
+  field in them is already in the `we` popup for the same 119 entities.
+  Config preserved, commented, in `js/layers.js`.
+- MapLibre GL JS is pinned at **5.24.0**, the newest release whose `dist/`
+  still ships a UMD bundle (`maplibre-gl.js`) for plain `<script src>` use —
+  later majors are ESM-chunk-only.
+- Styling lives in `js/layers.js` as a declarative config, not a static
+  `style.json` — it drives the map style, legend, and popup grouping from
+  one source, since two of the fills need runtime-generated `fill-pattern`
+  images (QGIS's `f_diagonal` hatch and `dense5` stipple have no MapLibre
+  built-in equivalent) that a static JSON file can't produce anyway.
 
 ## Data pipeline (context only, already executed — not part of this build)
 DB is directly reachable (no SSH tunnel needed for this client). Pipeline used:
