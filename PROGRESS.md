@@ -10,7 +10,9 @@ let's do \<next thing\>."*
 ## Status
 
 **v1 built and verified, pushed to GitHub.**
-Repo: https://github.com/TheGeoTheo/nl_webmap (private)
+Repo: https://github.com/maptransfer/nl_webmap (public — transferred from
+personal account `TheGeoTheo` to the `maptransfer` org; public and served
+live via GitHub Pages)
 Commits: `d059dca` (initial data), `3bdff42` (frontend build) — both predate
 the atomic-commit convention below; every commit from here forward follows
 it.
