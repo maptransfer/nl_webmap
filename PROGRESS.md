@@ -9,7 +9,8 @@ let's do \<next thing\>."*
 
 ## Status
 
-**v1 built and verified, pushed to GitHub.**
+**v1 built and verified, pushed to GitHub. Querying scoped to `we` on
+2026-09-07** (see the dated entry under "Completed").
 Repo: https://github.com/maptransfer/nl_webmap (public — transferred from
 personal account `TheGeoTheo` to the `maptransfer` org; public and served
 live via GitHub Pages)
@@ -44,6 +45,21 @@ it.
   reusing a variable name in a later eval throws `SyntaxError: already
   declared`, silently no-opping that eval. Wrap each eval in an IIFE
   (`(() => { ... })()`) to avoid it.
+  **Gotcha hit (2026-09-07):** `map.queryRenderedFeatures(point, {layers})`
+  needs the point as a `Point` instance or an `[x, y]` **array**. Passing a
+  plain `{x, y}` object is silently taken as the *options* argument, so the
+  call queries the whole viewport and every layer appears to be hit at every
+  pixel — which looks like a styling/hit-test bug in the app rather than a
+  test-harness bug. Cost an hour of chasing the wrong thing.
+  **Gotcha hit (2026-09-07):** the first-load `#hint-toast` is bottom-centred
+  and overlays the lower map, swallowing synthetic clicks aimed at the canvas
+  there. Dismiss it (`document.getElementById('hint-dismiss').click()`)
+  before dispatching map clicks. `localStorage` keeps it dismissed for a real
+  user but a fresh headless profile always shows it.
+  **Note:** `/favicon.ico` 404s on every page load (the project ships none).
+  Harmless, predates all frontend work, but it will show up in any
+  console-cleanliness assertion — filter it rather than treating it as a
+  regression.
 
 ## Architecture decisions
 
@@ -64,6 +80,16 @@ it.
 - **Default view: Ahrensburg.** The data spans two disjoint towns ~40 km
   apart; Ahrensburg holds 88% of it (105/119 Wirtschaftseinheiten). A view
   fitted to the combined bbox lands on empty countryside.
+- **One layer is queryable, and one flag says which.** `queryable: true` on
+  the `we` entry in `js/layers.js` is the single switch. `hitLayerIds()`
+  filters on it, and both `wireHover()` and `wireClicks()` in `js/app.js`
+  query against that one list — so popup, hover highlight and pointer cursor
+  can never disagree about what is clickable. The earlier `interactive` flag
+  was dropped: it conflated "has a visible symbol" with "has a popup", which
+  is exactly the ambiguity this change had to resolve. Where the legend
+  needed the "has a visible symbol" half (printing "nur Beschriftung"), it is
+  now derived from the parts (`parts.every(p => p.type === 'symbol')`) rather
+  than carried as a second flag.
 - **Bookmarks precomputed to WGS84**, not parsed client-side.
   `tools/bookmarks_to_js.py` converts the QGIS bookmark export (EPSG:25832)
   into `js/bookmarks.js` ahead of time — avoids vendoring a
@@ -132,6 +158,62 @@ it.
 - `README.md` — run instructions, layer list, vendoring, re-tiling pointer,
   production basemap note.
 
+### 2026-09-07 — only `we` is queryable
+
+**Why:** v1 made four layers clickable (`we`, `gebaeude_ansicht`,
+`grundbuch_ansicht`, `flurstuecke`). Only the Wirtschaftseinheit is the
+object of interest; the rest are context. With four live hit targets and
+`gebaeude_ansicht` sitting *above* `we` in hit order, a click on a building
+opened the Gebäude popup instead of the WiE it belongs to, and the cyan hover
+outline on every polygon implied all of them were clickable.
+
+**What changed:**
+- `js/layers.js` — `interactive`/`primary` replaced by `queryable: true` on
+  `we` alone. Removed the `highlight` block from the three display-only
+  polygon layers (three `hl-*` style layers gone) and commented out
+  `grundbuch_ansicht`'s zero-opacity wide `hit` part, which only existed to
+  make its thin border easier to click.
+- `js/app.js` — no logic change, only comments: both handlers already read
+  `hitLayerIds(LAYERS)`, so restricting that function restricted popup,
+  hover highlight and cursor in one go.
+- `js/legend.js` — the flat layer list became two headed groups,
+  "Abfrageebene" (the `we` row, accent left border + a red "Klick für
+  Details" pill) and "Darstellungsebenen · nur Anzeige" (the other five, in
+  map-stack order). Row markup factored into a local `rowHtml()`. `metaLine()`
+  appends "nur Darstellung" for non-queryable layers.
+- `index.html` — `#layer-list` changed from `<ul>` to `<div>` (it now holds
+  one `<ul>` per group), plus a one-sentence hint under the "Ebenen" heading.
+- `css/app.css` — `.layer-group`, `.layer-group-head`, `.layer-row--primary`,
+  `.layer-note`, `.section-hint`; `.layer-list` took over the list reset from
+  `#layer-list`.
+- **Popups for the other three layers were deliberately kept** in
+  `js/popups.js` (`gebaeudeBody`, `flurstueckBody`, `grundbuchBody`, their
+  `BODY_BUILDERS`/`HIT_TITLES` entries and the `LABELS` blocks in
+  `js/fields.js`). They are unreachable by design, not by accident — a
+  comment above `BODY_BUILDERS` says so. Re-enabling a layer is the
+  `queryable` flag, not a rewritten popup. The multi-hit "Weitere Objekte
+  hier" picker is still live: overlapping WiE polygons can return several
+  features from one click.
+
+**Verified** (22/22 assertions, headless Chrome over CDP, script in the
+session scratchpad — not committed):
+- A click on a Flurstück/Gebäude opens the **WiE** popup (`WiE 1952`, 6 stat
+  tiles) with **no** "Weitere Objekte hier" picker — in v1 this same click
+  opened the Gebäude/Flurstück popup.
+- Clicking a WiE still opens the full grouped popup (`WiE 0329`, all 4
+  sections, header not scrolled off).
+- Cursor is `pointer` only over `we`; hover `feature-state` is set on `we`
+  features and on zero features of the other three layers.
+- Style contains `hl-we` and no other `hl-*`; no `grundbuch_ansicht-hit`.
+- All six checkboxes still flip every style layer they own (4/1/1/3/1/2 ids).
+- With `we` hidden, clicking a bare Gebäude/Flurstück gives no popup and no
+  pointer — the cleanest available proof of inertness, since **every**
+  Gebäude and Flurstück polygon in this dataset lies inside a WiE polygon
+  (6248 candidate points checked across 12 views found no point that is on a
+  display-only layer and off every WiE). Re-showing `we` restores the popup.
+- Sidebar: two groups, 1 + 5 rows, the "Klick für Details" note on the `we`
+  row only. Console clean apart from the pre-existing favicon 404.
+
 ## Known issues / blockers
 
 - **DB password in `scripts/export_pgis_layers.bat` needs rotating.** The
@@ -147,6 +229,12 @@ it.
 
 ## Next steps
 
-None requested yet. v1 is feature-complete against the original brief in
-`CLAUDE.md` (all in-scope layers styled, legend, toggles, popups, hover) —
-awaiting review or a specific next ask.
+None requested. v1 is feature-complete against the brief in `CLAUDE.md`, and
+querying is now scoped to `we` (see the 2026-09-07 entry above) — awaiting
+review or a specific next ask.
+
+Two things noticed but deliberately left alone, as out of scope for that
+change:
+- No `favicon.ico` (404 on every load, cosmetic).
+- `DEPLOYMENT.md` and `DEPLOYMENT-GITHUB-PAGES.md` are untracked in git —
+  they were never committed. Decide whether they belong in the repo.

@@ -2,6 +2,14 @@
 // grouping all derive from this one array. Adding/removing a layer, or
 // changing a QML-sourced value, is a one-place edit here.
 //
+// `queryable: true` marks a layer as the object of a click: it alone gets a
+// popup, a hover highlight and a pointer cursor. Only `we` carries it - the
+// other five layers are context (parcel boundaries, buildings, Grundbuch
+// outlines, labels) and stay toggleable but inert. Making another layer
+// queryable again is this one flag plus, for a thin-line layer, restoring its
+// commented-out `hit` part; the popup bodies for the other layers are still
+// present in js/popups.js.
+//
 // Colours and widths are taken verbatim from the QML files in qml/ (see the
 // comment on each entry). Width/size ramps use
 //   ["interpolate", ["exponential", 2], ["zoom"], ...]
@@ -28,7 +36,6 @@ export const LAYERS = [
     subtitle: 'ALKIS-Flurstücke mit Grundbuchbezug',
     count: 118,
     defaultVisible: true,
-    interactive: true,
     qml: 'qml/v_flurstuecke.qml',
     // singleSymbol, symbol alpha=0.5 -> multiplies BOTH fill and outline
     parts: [
@@ -38,7 +45,6 @@ export const LAYERS = [
         paint: { 'line-color': '#9a9a9a', 'line-opacity': 0.5, 'line-width': W_026M },
       },
     ],
-    highlight: { color: '#00e5ff', width: 3 },
     legend: [{ kind: 'fill', fill: '#edd943', fillOpacity: 0.5, stroke: '#9a9a9a', label: 'Flurstück (50% Deckkraft)' }],
   },
 
@@ -50,7 +56,6 @@ export const LAYERS = [
     subtitle: 'Grundbuchbezirke / -blätter',
     count: 64,
     defaultVisible: true,
-    interactive: true,
     qml: 'qml/v_grundbuch_ansicht.qml',
     // style="no" -> NO fill layer. Outline only.
     parts: [
@@ -58,16 +63,16 @@ export const LAYERS = [
         id: 'line', type: 'line', layout: { 'line-join': 'bevel' },
         paint: { 'line-color': '#838383', 'line-width': W_15M },
       },
-      // Zero-opacity wide hit target: the 1.5m line is a thin, unpleasant
-      // mouse target. Still returned by queryRenderedFeatures (only
-      // visibility:'none' layers are excluded). Placed low in hit-test
-      // order (see hitLayerIds) so it never steals a click from `we`.
-      {
-        id: 'hit', type: 'line', interactionOnly: true,
-        paint: { 'line-color': '#000000', 'line-opacity': 0, 'line-width': 8 },
-      },
+      // Zero-opacity wide hit target, only useful while this layer is
+      // queryable: the 1.5m line is a thin, unpleasant mouse target. Kept
+      // commented so re-enabling the layer stays a config edit. It was
+      // placed low in hit-test order (see hitLayerIds) so it never stole a
+      // click from `we`.
+      // {
+      //   id: 'hit', type: 'line', interactionOnly: true,
+      //   paint: { 'line-color': '#000000', 'line-opacity': 0, 'line-width': 8 },
+      // },
     ],
-    highlight: { color: '#00e5ff', width: 3 },
     legend: [{ kind: 'line', stroke: '#838383', label: 'Grenze (keine Füllung)' }],
   },
 
@@ -79,7 +84,6 @@ export const LAYERS = [
     subtitle: 'ALKIS-Gebäude ohne SAP-Adresszuordnung',
     count: 174,
     defaultVisible: true,
-    interactive: true,
     qml: 'qml/v_gebaeude_ansicht.qml',
     parts: [
       { id: 'fill', type: 'fill', paint: { 'fill-color': '#ba72b3', 'fill-opacity': 1 } },
@@ -89,7 +93,6 @@ export const LAYERS = [
         paint: { 'line-color': '#232323', 'line-width': W_05M },
       },
     ],
-    highlight: { color: '#00e5ff', width: 3 },
     legend: [{ kind: 'fillPattern', fill: '#ba72b3', pattern: 'pat-dense5-geb', stroke: '#232323', label: 'Gebäude (Stipple)' }],
   },
 
@@ -101,8 +104,7 @@ export const LAYERS = [
     subtitle: 'Primäre Ebene mit vollständigem Bestandspopup',
     count: 119,
     defaultVisible: true,
-    interactive: true,
-    primary: true,
+    queryable: true, // the ONLY queryable layer - see the file header
     qml: 'qml/mv_we.qml',
     // singleSymbol, 2 stacked SimpleFill layers: solid fill, then a
     // f_diagonal hatch overlay, then the outline.
@@ -128,7 +130,6 @@ export const LAYERS = [
     subtitle: 'Beschriftung der Grundbuchblätter',
     count: 64,
     defaultVisible: true,
-    interactive: false, // nullSymbol, label only - no popup, no hit target
     qml: 'qml/v_flst_grundbuchblaetter.qml',
     parts: [
       {
@@ -157,7 +158,6 @@ export const LAYERS = [
     subtitle: 'Hausnummern (ALKIS/SAP-abgeglichen)',
     count: 272,
     defaultVisible: true,
-    interactive: false, // nullSymbol, label only - no popup, no hit target
     qml: 'qml/v_adressen.qml',
     parts: [
       {
@@ -195,7 +195,6 @@ export const LAYERS = [
   //   title: 'WiE-Beschriftung (Detail)',
   //   count: 119,
   //   defaultVisible: false,
-  //   interactive: false,
   //   qml: 'qml/v_we_ansicht.qml',
   //   parts: [{
   //     id: 'label', type: 'symbol',
@@ -220,8 +219,9 @@ export function buildPromoteId(layers) {
 }
 
 /** Ordered array of MapLibre layer objects, bottom -> top, in LAYERS order,
- *  followed by one highlight line layer per interactive entry so hover
- *  highlights always sit above every fill regardless of layer toggles. */
+ *  followed by one highlight line layer per entry that declares `highlight`
+ *  (only the queryable ones do) so hover highlights always sit above every
+ *  fill regardless of layer toggles. */
 export function buildStyleLayers(layers) {
   const out = [];
   for (const cfg of layers) {
@@ -266,16 +266,22 @@ export function partIds(cfg) {
 }
 
 /** Layer ids to hit-test for hover/click, TOP -> BOTTOM. Only fill/point
- *  parts of interactive layers participate (never patterns, outlines, or
- *  label-only layers). grundbuch's hit layer sits below `we` deliberately -
- *  see the config comment above. */
+ *  parts of `queryable` layers participate (never patterns, outlines, or
+ *  label-only layers) - currently that means `we` alone. This single list
+ *  feeds both wireHover() and wireClicks() in app.js, so popup, hover
+ *  highlight and pointer cursor are all scoped by it together.
+ *
+ *  The `order` array is kept in full: it records the intended click priority
+ *  should another layer be made queryable again (grundbuch below `we`
+ *  deliberately, so its wide hit line could never steal a click). Entries
+ *  without `queryable` are skipped, so it costs nothing today. */
 export function hitLayerIds(layers) {
   const order = ['gebaeude_ansicht', 'we', 'grundbuch_ansicht', 'flurstuecke'];
   const byKey = Object.fromEntries(layers.map((c) => [c.key, c]));
   const ids = [];
   for (const key of order) {
     const cfg = byKey[key];
-    if (!cfg || !cfg.interactive) continue;
+    if (!cfg || !cfg.queryable) continue;
     const hitPart = cfg.parts.find((p) => p.interactionOnly) || cfg.parts.find((p) => p.type === 'fill') || cfg.parts[0];
     ids.push(`${cfg.key}-${hitPart.id}`);
   }

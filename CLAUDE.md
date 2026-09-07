@@ -111,9 +111,17 @@ expected, not duplicated data.
 - Render all layers styled to match QGIS symbology (from `qml/`)
 - **Legend** reflecting each layer's classification/colors
 - **Layer toggle** (show/hide per layer)
-- **Click popups** showing attribute info (not hover — avoids flicker on
-  polygons, works on touch/mobile, standard pattern for multi-layer maps)
-- Optional later: hover *highlight* (outline only, no popup) as a cheap enhancement
+- **Click popups on `we` only.** `we` (Wirtschaftseinheiten) is the single
+  queryable layer; the other five render and toggle but answer no click and
+  show no hover feedback. Driven by `queryable: true` on the `we` entry in
+  `js/layers.js` → `hitLayerIds()`, which scopes popup, hover highlight and
+  pointer cursor together. The sidebar splits the two kinds into
+  "Abfrageebene" / "Darstellungsebenen" so the distinction is visible before
+  clicking. Popups for the other layers are retained but unreachable in
+  `js/popups.js` — see `PROGRESS.md`.
+  (Click rather than hover for popups: avoids flicker on polygons, works on
+  touch/mobile, standard pattern for multi-layer maps.)
+- Hover *highlight* (cyan outline, no popup) on the queryable layer
 
 ## Explicitly out of scope for this project
 - The PostGIS→PMTiles export pipeline (already done, see below — not part of

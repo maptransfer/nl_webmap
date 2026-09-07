@@ -27,14 +27,30 @@ Then open **http://localhost:8000/**. Opening `index.html` directly via
 
 ## Layers rendered (6 of 7)
 
-| Layer | Style | Popup |
+**`we` is the only queryable layer.** Clicking it opens the grouped
+Bestandspopup; hovering it outlines the polygon and turns the cursor into a
+pointer. The other five are display layers — they render and can be toggled,
+but they answer no click and give no hover feedback, so a click that lands on
+a building or a parcel still reports the Wirtschaftseinheit it belongs to.
+The sidebar splits them into "Abfrageebene" and "Darstellungsebenen" to say
+so up front.
+
+| Layer | Style | Queryable |
 |---|---|---|
-| `we` (Wirtschaftseinheiten) | pink fill + diagonal hatch, dark outline | **yes** — the primary, grouped popup |
-| `gebaeude_ansicht` | mauve fill + stipple, dark outline | yes |
-| `flurstuecke` | translucent yellow fill, grey outline | yes |
-| `grundbuch_ansicht` | outline only (no fill), thick grey line | yes |
-| `flst_grundbuchblaetter` | label only (`Blatt: …`), from zoom 16 | no |
-| `adressen` | label only (house numbers, bold red) | no |
+| `we` (Wirtschaftseinheiten) | pink fill + diagonal hatch, dark outline | **yes** — the grouped popup |
+| `gebaeude_ansicht` | mauve fill + stipple, dark outline | no — display only |
+| `flurstuecke` | translucent yellow fill, grey outline | no — display only |
+| `grundbuch_ansicht` | outline only (no fill), thick grey line | no — display only |
+| `flst_grundbuchblaetter` | label only (`Blatt: …`), from zoom 16 | no — display only |
+| `adressen` | label only (house numbers, bold red) | no — display only |
+
+One flag controls this: `queryable: true` on the `we` entry in
+`js/layers.js`. It feeds `hitLayerIds()`, which both the click and the hover
+handler in `js/app.js` query against, so popup, highlight and cursor stay in
+step. The popup bodies for Gebäude, Flurstück and Grundbuch are still in
+`js/popups.js` (unreachable while only `we` is queryable) — making one of
+those layers queryable again is that flag plus, for the thin-line Grundbuch
+layer, uncommenting its wide `hit` part.
 
 `we_ansicht` (a 7th layer in the source tileset) is **deliberately not
 rendered**: it is `nullSymbol` in QGIS, so its labels were its only output —

@@ -147,6 +147,11 @@ function grundbuchBody(p) {
     <div class="popup-body">${stats}${rows}</div>`;
 }
 
+// Only `we` is queryable (see the header of js/layers.js), so the three other
+// builders below - and their HIT_TITLES entries - are currently unreachable by
+// design, not by accident. They are kept so that re-enabling a layer is the
+// one `queryable` flag in js/layers.js rather than a rewritten popup, the same
+// way the we_ansicht config is preserved there.
 const BODY_BUILDERS = {
   we: weBody,
   gebaeude_ansicht: gebaeudeBody,
@@ -163,7 +168,9 @@ const HIT_TITLES = {
 
 /** Builds full popup HTML for a stack of query hits (topmost first). Renders
  *  hits[0] in full and offers the rest as a "Weitere Objekte hier" picker
- *  that re-renders the body in place when clicked. */
+ *  that re-renders the body in place when clicked. Still reachable with only
+ *  `we` queryable: a click can return more than one feature where WiE
+ *  polygons overlap. */
 export function buildPopupHtml(hits, activeIndex = 0) {
   const active = hits[activeIndex];
   const key = active.layer['source-layer'];

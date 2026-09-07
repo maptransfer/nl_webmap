@@ -101,9 +101,12 @@ map.on('load', () => {
 });
 
 // ---- hover highlight --------------------------------------------------
-// One map-level mousemove handler (not one per layer) so only the topmost
-// hit highlights - four simultaneous highlights on overlapping layers would
-// be noise. feature-state requires promoteId (set above) on a real business
+// One map-level mousemove handler (not one per layer), scoped to the same
+// HIT list as the click handler: the cyan outline and the pointer cursor
+// therefore appear only over the queryable layer, so the cursor itself says
+// what will answer a click.
+//
+// feature-state requires promoteId (set above) on a real business
 // key: the tiles' own mvt_id is synthesised PER TILE, so a polygon clipped
 // across a tile boundary would get different mvt_ids and only the fragment
 // under the cursor would highlight.
@@ -136,8 +139,11 @@ function wireHover(map) {
 }
 
 // ---- click popups -------------------------------------------------------
-// Only layers with a visible symbol get a popup (see hitLayerIds). Label-
-// only layers (adressen, flst_grundbuchblaetter) are never in HIT.
+// Only `queryable` layers get a popup, which today means `we` alone (see
+// hitLayerIds in layers.js). Every other layer - context fills and label-only
+// layers alike - is never in HIT, so clicks pass through it. A `we` polygon
+// toggled to visibility:'none' drops out of HIT too, since
+// queryRenderedFeatures skips hidden layers.
 function wireClicks(map) {
   const HIT = hitLayerIds(LAYERS);
 

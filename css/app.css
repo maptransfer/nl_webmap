@@ -153,9 +153,61 @@ section.views h2 { border-top: none; padding-top: 0; margin-top: 4px; }
 
 /* ---------- layer list ---------- */
 
-#layer-list { list-style: none; margin: 0; padding: 0; }
+/* One muted sentence under the "Ebenen" heading, naming the queryable layer. */
+.section-hint {
+  margin: 0 0 8px;
+  color: var(--ui-muted);
+  font-size: 11.5px;
+  line-height: 1.4;
+}
+
+.layer-list { list-style: none; margin: 0; padding: 0; }
+
+/* Two groups: the queryable layer, then the display-only ones. Subordinate to
+   the .sidebar h2 rule above - no border, so the groups read as one block. */
+.layer-group + .layer-group { margin-top: 12px; }
+.layer-group-head {
+  font-size: 10.5px;
+  text-transform: uppercase;
+  letter-spacing: .04em;
+  color: var(--ui-muted);
+  font-weight: 600;
+  margin: 0 0 3px;
+}
+.layer-group-head .hint {
+  text-transform: none;
+  letter-spacing: 0;
+  font-weight: 400;
+}
 
 .layer-row + .layer-row { border-top: 1px solid #f0f0f0; }
+
+/* The queryable layer, set apart from the display-only rows below it. */
+.layer-row--primary {
+  border-left: 3px solid var(--accent);
+  background: rgba(144, 30, 29, .04);
+  border-radius: 4px;
+  padding-bottom: 2px;
+}
+.layer-row--primary .layer-head { padding-left: 7px; }
+.layer-row--primary .layer-head label { font-weight: 600; }
+.layer-row--primary .layer-legend { padding-left: 32px; }
+
+.layer-note {
+  margin: -2px 0 4px 32px;
+  font-size: 11.5px;
+  color: var(--ui-muted);
+}
+.layer-note--primary {
+  display: inline-block;
+  margin-left: 30px;
+  padding: 1px 6px;
+  border-radius: 9px;
+  background: var(--accent);
+  color: #fff;
+  font-size: 10.5px;
+  letter-spacing: .02em;
+}
 
 .layer-head {
   display: flex;
