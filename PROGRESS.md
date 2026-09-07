@@ -9,11 +9,13 @@ let's do \<next thing\>."*
 
 ## Status
 
-**v1 built and verified, pushed to GitHub. Querying scoped to `we` on
-2026-09-07** (see the dated entry under "Completed").
+**v1 built and verified, deployed. Querying scoped to `we` on 2026-09-07**
+(see the dated entry under "Completed").
 Repo: https://github.com/maptransfer/nl_webmap (public — transferred from
-personal account `TheGeoTheo` to the `maptransfer` org; public and served
-live via GitHub Pages)
+personal account `TheGeoTheo` to the `maptransfer` org)
+**Live: https://maptransfer.github.io/nl_webmap/** — GitHub Pages, built
+from `master` at the repo root, no Actions workflow, so `git push` *is* the
+deploy. Operational detail in `DEPLOYMENT.md`.
 Commits: `d059dca` (initial data), `3bdff42` (frontend build) — both predate
 the atomic-commit convention below; every commit from here forward follows
 it.
@@ -214,15 +216,54 @@ session scratchpad — not committed):
 - Sidebar: two groups, 1 + 5 rows, the "Klick für Details" note on the `we`
   row only. Console clean apart from the pre-existing favicon 404.
 
+### 2026-09-07 — deployment documented against the live site
+
+`DEPLOYMENT.md` and `DEPLOYMENT-GITHUB-PAGES.md` were pre-decision
+brainstorming docs (option tables for Cloudflare/S3/Azure/Pages, repo-
+visibility trade-offs) written before GitHub Pages was actually set up.
+Both were untracked and never committed. Replaced by a single
+`DEPLOYMENT.md` describing what is running; the GitHub Pages one was
+deleted.
+
+Every fact in the new doc was checked against the live site, not recalled:
+- `gh api repos/maptransfer/nl_webmap/pages` → `build_type: legacy`,
+  `source: {branch: master, path: /}`, `https_enforced: true`, `cname: null`,
+  repo `visibility: public`. No `.github/workflows` exists, so a plain
+  `git push` to `master` is the entire deploy.
+- Live range check returned `206` with
+  `Content-Range: bytes 0-15/1823852` and `Cache-Control: max-age=600`.
+- The site is the **repo root**: `qml/mv_we.qml` and `CLAUDE.md` return 200
+  live, while `scripts/export_pgis_layers.bat` returns 404 (gitignored, holds
+  the DB password). Worth knowing before adding files to the repo.
+- `vendor/maplibre-gl.js` returns 200 at exactly 1,056,837 bytes — checked
+  specifically because GitHub's legacy build runs Jekyll, whose defaults
+  exclude a `vendor/` directory. It is served correctly today; an empty
+  `.nojekyll` would remove the reliance on that and is noted in
+  `DEPLOYMENT.md` as optional hardening (not added — no problem to fix yet).
+
+`README.md`'s "Deploying" section, which described generic static hosting,
+now names the live URL and the one-line deploy and points at `DEPLOYMENT.md`
+for the rest. `CLAUDE.md`'s out-of-scope note was corrected: hosting is
+decided, though host-agnosticism is still a property worth keeping.
+
 ## Known issues / blockers
 
 - **DB password in `scripts/export_pgis_layers.bat` needs rotating.** The
   file is gitignored (never committed), but it's sat in plaintext on disk —
   treat it as exposed. Not something I can do; needs the user to rotate it
   on the DB side.
-- **OSM raster basemap is dev-only.** `tile.openstreetmap.org` is under a
-  usage policy that doesn't cover production traffic — swap the `tiles:`
-  URL in `js/app.js` (one line) before any real deployment.
+- **OSM raster basemap is an accepted deviation, not a blocker.**
+  `tile.openstreetmap.org` is under a usage policy that doesn't cover
+  production traffic, and the live site uses it anyway — a deliberate call at
+  the current low traffic level (decided 2026-09-07). The fix, when traffic
+  or client requirements make it matter, is the one `tiles:` URL in
+  `js/app.js`. OSM attribution is already rendered and stays required
+  whatever the provider.
+- **The published dataset is world-readable, by design.** The repo is
+  public, so `data/neue-luebecker.pmtiles` is directly downloadable, not just
+  browsable through the map. Confirmed as intended for this deployment
+  (2026-09-07) — don't treat it as a leak, but don't assume the next dataset
+  carries the same clearance.
 - **No automated regression test suite.** Verification has been manual +
   one-off CDP scripting per session; nothing runs in CI. Worth building out
   if this project grows past occasional AI-assisted sessions.
@@ -233,8 +274,13 @@ None requested. v1 is feature-complete against the brief in `CLAUDE.md`, and
 querying is now scoped to `we` (see the 2026-09-07 entry above) — awaiting
 review or a specific next ask.
 
-Two things noticed but deliberately left alone, as out of scope for that
-change:
+Small things noticed and deliberately left alone:
 - No `favicon.ico` (404 on every load, cosmetic).
-- `DEPLOYMENT.md` and `DEPLOYMENT-GITHUB-PAGES.md` are untracked in git —
-  they were never committed. Decide whether they belong in the repo.
+- No `.nojekyll` — see the deployment entry above; nothing is broken, it
+  would just remove a dependency on Jekyll's default behaviour.
+- `note_to_self.png` sits untracked in the repo root. Not mine to commit or
+  delete; ask before touching it.
+- `CLAUDE.md`'s "Project folder structure" tree is stale — it predates the
+  frontend and omits `js/`, `css/`, `vendor/`, `tools/` and the `.md` files.
+  Left alone to keep the deployment-docs commit atomic; worth a one-line
+  cleanup commit of its own.

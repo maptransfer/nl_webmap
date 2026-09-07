@@ -108,14 +108,16 @@ contains a database password. Run it locally, then drop the resulting
 
 ## Deploying
 
-Everything the browser needs is `index.html`, `css/`, `js/`, `vendor/`, and
-`data/neue-luebecker.pmtiles`. Copy that set to any static host (GitHub
-Pages, Cloudflare Pages, S3, a plain web server) — all paths are relative,
-so it works unchanged from a subdirectory too. It just needs a server that
-handles range requests correctly (essentially all production static hosts
-do; only Python's basic `http.server` doesn't).
+**Live at <https://maptransfer.github.io/nl_webmap/>** — GitHub Pages, built
+from `master` at the repo root, so a deploy is just:
 
-**Before production use**, swap the OSM raster basemap's `tiles:` URL in
-`js/app.js` for a paid or self-hosted endpoint — `tile.openstreetmap.org` is
-a donated resource under a usage policy that doesn't cover production
-traffic.
+```
+git push origin master
+```
+
+There is no build step and no CI gate between a push and the public site, so
+check locally with `serve.bat` first. **See `DEPLOYMENT.md`** for the full
+picture: what is and isn't published, why relative paths matter on a project
+subpath, cache behaviour, how to publish refreshed data, the three `curl`
+commands that verify a deploy, and the accepted deviations (public dataset,
+OSM basemap).

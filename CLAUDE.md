@@ -3,9 +3,10 @@
 ## Goal
 Interactive web map for client **Neue Lübecker**, built from a finished, static
 `data/neue-luebecker.pmtiles` file (7 layers, already exported and packed —
-see pipeline below) plus QML styling files. Fully static frontend, hostable
-anywhere later (local dev now, Cloudflare/S3/Pages/etc. eventually), zero
-runtime dependency on the database.
+see pipeline below) plus QML styling files. Fully static frontend, zero
+runtime dependency on the database. **Live on GitHub Pages** at
+https://maptransfer.github.io/nl_webmap/ (see `DEPLOYMENT.md`); still
+host-agnostic, so it remains portable to Cloudflare/S3/etc.
 
 ## Workflow
 
@@ -127,9 +128,13 @@ expected, not duplicated data.
 - The PostGIS→PMTiles export pipeline (already done, see below — not part of
   this build unless the data needs re-exporting)
 - Any live database connection from the frontend
-- Deployment/hosting decisions — build assuming local static serving; must
-  remain host-agnostic (portable to Cloudflare, S3, GitHub Pages, etc.
-  without code changes)
+- Deployment/hosting *decisions* — settled: the map is live on GitHub Pages
+  at https://maptransfer.github.io/nl_webmap/, built from `master` at the
+  repo root, so `git push` is the deploy. See `DEPLOYMENT.md` for the
+  operational detail. Host-agnosticism is still a property to preserve
+  (relative paths only, no build step), so the site stays portable to
+  Cloudflare, S3, etc. without code changes — but "which host" is no longer
+  an open question.
 
 ## Frontend implementation notes (v1, built)
 - **Plain `python -m http.server` does not work for local serving.** PMTiles
