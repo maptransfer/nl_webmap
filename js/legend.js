@@ -1,8 +1,5 @@
 import { partIds } from './layers.js';
-
-function esc(s) {
-  return String(s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
-}
+import { esc } from './util.js';
 
 function hexToRgba(hex, alpha) {
   const h = hex.replace('#', '');

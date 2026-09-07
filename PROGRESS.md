@@ -9,8 +9,8 @@ let's do \<next thing\>."*
 
 ## Status
 
-**v1 built and verified, deployed. Querying scoped to `we` on 2026-09-07**
-(see the dated entry under "Completed").
+**v1 built and verified, deployed. Full ServiceCenter/Standort/Untergebiet
+nav tree added 2026-09-07** (see the dated entries under "Completed").
 Repo: https://github.com/maptransfer/nl_webmap (public — transferred from
 personal account `TheGeoTheo` to the `maptransfer` org)
 **Live: https://maptransfer.github.io/nl_webmap/** — GitHub Pages, built
@@ -96,6 +96,23 @@ it.
   `tools/bookmarks_to_js.py` converts the QGIS bookmark export (EPSG:25832)
   into `js/bookmarks.js` ahead of time — avoids vendoring a
   reprojection library for a conversion that only needs doing once.
+- **`js/areas.js` (hand-written) holds the client's full org structure**
+  (4 ServiceCenter → 36 Standorte), separate from `js/bookmarks.js`
+  (generated, WGS84 bounds for the 2 imported towns + their 11 sub-areas).
+  A Standort's `town` field, if present, is resolved against
+  `TOWNS[].name` in `bookmarks.js` — that's the entire "is this area
+  imported" mechanism, no separate hand-maintained flag. Importing a new
+  area is then: add its QGIS bookmark, re-run `bookmarks_to_js.py`, add
+  `town: '<Name>'` to the matching Standort in `areas.js`. Untergebiete are
+  not restated in `areas.js`; they come only from `bookmarks.js`'s
+  `subAreas`, so a Standort with no bookmark can't show Untergebiete (no
+  such case exists today).
+- **WiE ≠ Wohnungen — never mix the two counts in the UI.** One
+  Wirtschaftseinheit can hold several apartments. The client's reference
+  material gives Wohnungen totals per Standort/ServiceCenter; the map only
+  knows WiE counts for the 2 imported towns. Rather than fabricate or imply
+  a Wohnungen figure for unimported areas, the nav tree shows **no number
+  at all** on unimported Standorte — just a grey chip with the name.
 
 ## Completed
 
@@ -246,6 +263,78 @@ now names the live URL and the one-line deploy and points at `DEPLOYMENT.md`
 for the rest. `CLAUDE.md`'s out-of-scope note was corrected: hosting is
 decided, though host-agnosticism is still a property worth keeping.
 
+### 2026-09-07 — full ServiceCenter/Standort/Untergebiet nav tree (sales-demo framing)
+
+**Why:** the map is going into a sales pitch to Neue Lübecker. Only 2 of
+their 36 Standorte are imported (Ahrensburg, Ratzeburg), but the sidebar
+previously showed only those two — reading as "this is the whole product"
+rather than "here's your portfolio, 2 areas live, the rest is a switch to
+flip". The client supplied their full org structure
+(`servicecenter_structure.json` + a reference graphic showing Wohnungen
+counts per Standort/ServiceCenter) as the target hierarchy.
+
+**What changed:**
+- **New `js/areas.js`** — hand-written 4 ServiceCenter → 36 Standort
+  structure (spelling/order from the client JSON). See the architecture-
+  decisions entry above for the `town`-as-import-flag mechanism.
+- **New `js/util.js`** — `esc()` moved out of `js/legend.js` (now imported,
+  no behaviour change) and a new `slug()` (umlaut-aware) for stable DOM ids,
+  since Untergebiet/Standort names contain spaces, `/`, `:`, umlauts.
+- **`js/app.js`**: `initViewPicker()` → `initAreaPicker()`, rewritten to
+  render the 3-level tree (`.sc-group` → `.standort-list`/`.pending` →
+  `.ug-list`). Opening view changed from the whole Ahrensburg town to its
+  first Untergebiet (Schäferweg), resolved via `DEFAULT_VIEW` in `areas.js`
+  through `resolveDefaultBounds()` (falls back town → `COMBINED_BOUNDS`).
+  Delegated click wiring generalized to work at both the ServiceCenter and
+  Standort-chevron level (`[aria-controls]` → toggle) and across both
+  Standort and Untergebiet rows (`[data-bounds]` → fly + set `.is-active`);
+  clicking a Standort name also auto-expands its Untergebiete
+  (`data-expand` attribute ties the two together in one click).
+- **Unimported Standorte render as inert grey chips** (`<li class="chip">`,
+  no `data-bounds`, no button, not focusable) grouped under a "noch nicht
+  importiert" label inside their ServiceCenter — not as 34 dead full-width
+  rows.
+- **Demo framing note** at the top of the tree, all numbers computed from
+  `areas.js`/`bookmarks.js` (never hardcoded): "Demo: 2 von 36 Standorten
+  erfasst (119 Wirtschaftseinheiten). Grau: noch nicht importiert."
+- `css/app.css` — old `.view-group`/`.view-group-head`/`.town-btn`/
+  `.view-sub-list` rules replaced with `.sc-*`, `.standort-*`, `.ug-list`,
+  `.pending`, `.chip*`, `.is-active`; chevron rotate-on-expand generalized to
+  `[aria-expanded="true"] .chev` (was scoped to one class).
+- `index.html` — first-load toast reworded around "Demo-Datenstand" instead
+  of "Zwei Standorte"; `#view-list` comment updated.
+- Ratzeburg **kept its 4 Untergebiete** from the bookmarks even though the
+  client JSON lists none under it — user decision, since dropping them would
+  have thrown away working navigation.
+
+**Verified** (headless Chrome over CDP, `serve_range.py`; script + driver
+in the session scratchpad, not committed):
+- Opening view is Schäferweg (not the Ahrensburg town extent): map bounds
+  matched the sub-area's bookmark exactly, zoom ≈16.1.
+- Structure: 4 `.sc-group`; `sc-cnt` read `1 von 8` / `0 von 7` / `1 von 7`
+  / `0 von 14`; 34 `.chip` elements; 2 `.standort-btn[data-bounds]`; 11
+  `.ug-list button[data-bounds]` (7 Ahrensburg + 4 Ratzeburg); demo note text
+  matched the computed numbers exactly.
+- Chips confirmed inert: none carries `data-bounds`, none is a `<button>`,
+  every one has `tabIndex -1`; clicking one left `map.getCenter()`/
+  `getZoom()` byte-identical and logged nothing.
+- Navigation: clicking the Ratzeburg Standort row flew to the Ratzeburg
+  town bounds *and* auto-expanded its Untergebiete (`chevExpanded: "true"`,
+  `ugHidden: false`); clicking an Untergebiet ("Rondeel") flew to its
+  bookmark bounds and moved `.is-active` there (exactly one active element
+  at a time, confirmed via `document.querySelectorAll('.is-active').length
+  === 1`).
+- Toggling: `.sc-head` click flips `aria-expanded` and its panel's
+  `hidden`; `.chev-wrap` likewise.
+- No collateral damage: the `we` popup still opens on click (`WiE 0244`,
+  Schäferweg 25-27, 6 stat tiles, no multi-hit picker); the 6 legend
+  checkboxes still flip their style layers' `visibility` (spot-checked
+  `we-fill` through none→visible→none).
+- Responsive: at 1280px wide, the chip block wraps to 2 rows with no
+  horizontal scroll on `#sidebar-body`; at 800px the sidebar still
+  auto-collapses under the existing 900px breakpoint (unrelated to this
+  change, confirmed not broken).
+
 ## Known issues / blockers
 
 - **DB password in `scripts/export_pgis_layers.bat` needs rotating.** The
@@ -270,11 +359,16 @@ decided, though host-agnosticism is still a property worth keeping.
 
 ## Next steps
 
-None requested. v1 is feature-complete against the brief in `CLAUDE.md`, and
-querying is now scoped to `we` (see the 2026-09-07 entry above) — awaiting
-review or a specific next ask.
+None requested. The full ServiceCenter/Standort/Untergebiet nav tree is built
+and verified (see the 2026-09-07 entry above) — awaiting review or a specific
+next ask.
 
 Small things noticed and deliberately left alone:
+- `js/areas.js` is hand-written and will drift silently if the client's org
+  structure changes (renamed/merged/split Standorte) — there's no automated
+  check tying it back to `servicecenter_structure.json`. Fine for a
+  sales-demo snapshot; worth a comparison script if the structure becomes a
+  living document.
 - No `favicon.ico` (404 on every load, cosmetic).
 - No `.nojekyll` — see the deployment entry above; nothing is broken, it
   would just remove a dependency on Jekyll's default behaviour.

@@ -2,7 +2,9 @@ import { LAYERS, buildPromoteId, buildStyleLayers, hitLayerIds } from './layers.
 import { buildPatterns, registerPatterns } from './patterns.js';
 import { renderLegend } from './legend.js';
 import { buildPopupHtml, wirePopupInteractions } from './popups.js';
-import { TOWNS, COMBINED_BOUNDS, DEFAULT_TOWN } from './bookmarks.js';
+import { TOWNS, COMBINED_BOUNDS } from './bookmarks.js';
+import { SERVICE_CENTERS, DEFAULT_VIEW, stripTownPrefix } from './areas.js';
+import { esc, slug } from './util.js';
 
 // ---- pmtiles protocol ------------------------------------------------------
 // Absolutised against document.baseURI (no hardcoded hostname) so the same
@@ -26,7 +28,15 @@ function fitPadding() {
 // references them via fill-pattern - otherwise MapLibre logs "Image could
 // not be loaded" and the fill silently renders empty. ----------------------
 
-const defaultTown = TOWNS.find((t) => t.name === DEFAULT_TOWN) || TOWNS[0];
+// Opening view: the first Untergebiet of Standort Ahrensburg (DEFAULT_VIEW,
+// from areas.js), not the whole town - falls back to the town's own bounds
+// (then to COMBINED_BOUNDS) if a re-export ever drops that sub-area.
+function resolveDefaultBounds() {
+  const town = TOWNS.find((t) => t.name === DEFAULT_VIEW.town);
+  if (!town) return COMBINED_BOUNDS;
+  const sub = town.subAreas && town.subAreas[DEFAULT_VIEW.subAreaIndex];
+  return (sub && sub.bounds) || town.bounds;
+}
 
 const style = {
   version: 8,
@@ -49,7 +59,7 @@ const style = {
 const map = new maplibregl.Map({
   container: 'map',
   style,
-  bounds: defaultTown.bounds,
+  bounds: resolveDefaultBounds(),
   fitBoundsOptions: fitPadding(),
   minZoom: 10,
   maxZoom: 20,
@@ -201,46 +211,134 @@ function openPopup(map, lngLat, hits, activeIndex) {
   });
 })();
 
-// ---- sidebar: bookmark picker (Ahrensburg / Ratzeburg + sub-areas) -------
-(function initViewPicker() {
+// ---- sidebar: ServiceCenter / Standort / Untergebiet picker ---------------
+// Renders the client's full portfolio (js/areas.js) as a 3-level tree, so the
+// demo shows the whole structure - not just the two imported towns. A
+// Standort is "imported" purely by carrying a `town` field that resolves
+// against TOWNS (js/bookmarks.js); Standorte without one render as inert grey
+// chips rather than clickable rows. See CLAUDE.md / PROGRESS.md for why.
+(function initAreaPicker() {
   const container = document.getElementById('view-list');
 
   function fly(bounds) {
     map.fitBounds(bounds, { ...fitPadding(), duration: 900 });
   }
 
-  const groupsHtml = TOWNS.map((town, i) => `
-    <div class="view-group" data-town="${town.name}">
-      <div class="view-group-head" aria-expanded="${i === 0 ? 'true' : 'false'}" aria-controls="sub-${town.name}">
-        <button type="button" class="town-btn" data-bounds='${JSON.stringify(town.bounds)}'>
-          ${town.name} <span class="cnt">${town.weCount} WiE</span>
-        </button>
-        <span class="chev-wrap">
+  function setActive(el) {
+    container.querySelectorAll('.is-active').forEach((n) => n.classList.remove('is-active'));
+    el.classList.add('is-active');
+  }
+
+  function resolveTown(standort) {
+    if (!standort.town) return null;
+    const town = TOWNS.find((t) => t.name === standort.town);
+    if (!town) {
+      console.warn(`areas.js: Standort "${standort.name}" references unknown town "${standort.town}" - showing as not imported.`);
+      return null;
+    }
+    return town;
+  }
+
+  const totalStandorte = SERVICE_CENTERS.reduce((sum, sc) => sum + sc.standorte.length, 0);
+  let importedStandorte = 0;
+  let importedWe = 0;
+
+  const groupsHtml = SERVICE_CENTERS.map((sc) => {
+    const resolved = sc.standorte.map((s) => ({ standort: s, town: resolveTown(s) }));
+    const imported = resolved.filter((r) => r.town);
+    const pending = resolved.filter((r) => !r.town);
+    importedStandorte += imported.length;
+    importedWe += imported.reduce((sum, r) => sum + r.town.weCount, 0);
+
+    const scId = `sc-${slug(sc.name)}`;
+    const scHasData = imported.length > 0;
+
+    const standortRowsHtml = imported.map(({ standort, town }) => {
+      const isDefaultStandort = standort.town === DEFAULT_VIEW.town;
+      const ugListId = `st-${slug(sc.name)}-${slug(standort.name)}`;
+      const subAreas = town.subAreas || [];
+      const chevHtml = subAreas.length ? `
+          <button type="button" class="chev-wrap" aria-expanded="${isDefaultStandort ? 'true' : 'false'}" aria-controls="${ugListId}" title="Untergebiete ein-/ausblenden">
+            <svg class="chev" viewBox="0 0 24 24" width="14" height="14" aria-hidden="true">
+              <path d="M9 6l6 6-6 6" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
+            </svg>
+          </button>` : '';
+      const ugListHtml = subAreas.length ? `
+        <ul class="ug-list" id="${ugListId}" ${isDefaultStandort ? '' : 'hidden'}>
+          ${subAreas.map((s, i) => {
+            const isDefaultSub = isDefaultStandort && i === DEFAULT_VIEW.subAreaIndex;
+            return `<li><button type="button" class="${isDefaultSub ? 'is-active' : ''}" data-bounds='${JSON.stringify(s.bounds)}'>${esc(stripTownPrefix(s.name))}</button></li>`;
+          }).join('')}
+        </ul>` : '';
+
+      return `
+        <li>
+          <div class="standort-head">
+            <button type="button" class="standort-btn" data-bounds='${JSON.stringify(town.bounds)}' ${subAreas.length ? `data-expand="${ugListId}"` : ''}>
+              ${esc(standort.name)} <span class="cnt">${town.weCount} WiE</span>
+            </button>${chevHtml}
+          </div>${ugListHtml}
+        </li>`;
+    }).join('');
+
+    const pendingHtml = pending.length ? `
+      <div class="pending">
+        <span class="pending-label">noch nicht importiert</span>
+        <ul class="chip-list">
+          ${pending.map((r) => `<li class="chip" title="Noch nicht importiert">${esc(r.standort.name)}</li>`).join('')}
+        </ul>
+      </div>` : '';
+
+    return `
+      <div class="sc-group">
+        <button type="button" class="sc-head" aria-expanded="${scHasData ? 'true' : 'false'}" aria-controls="${scId}">
           <svg class="chev" viewBox="0 0 24 24" width="14" height="14" aria-hidden="true">
             <path d="M9 6l6 6-6 6" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
           </svg>
-        </span>
-      </div>
-      <ul class="view-sub-list" id="sub-${town.name}" ${i === 0 ? '' : 'hidden'}>
-        ${town.subAreas.map((s) => `<li><button type="button" data-bounds='${JSON.stringify(s.bounds)}'>${s.name}</button></li>`).join('')}
-      </ul>
-    </div>`).join('');
+          <span class="sc-name">${esc(sc.name)}</span>
+          <span class="sc-cnt">${imported.length} von ${resolved.length}</span>
+        </button>
+        <div class="sc-body" id="${scId}" ${scHasData ? '' : 'hidden'}>
+          ${standortRowsHtml ? `<ul class="standort-list">${standortRowsHtml}</ul>` : ''}
+          ${pendingHtml}
+        </div>
+      </div>`;
+  }).join('');
+
+  const demoNoteHtml = `<p class="views-demo-note">Demo: ${importedStandorte} von ${totalStandorte} Standorten erfasst
+    (${importedWe} Wirtschaftseinheiten). Grau: noch nicht importiert.</p>`;
 
   container.innerHTML = `
+    ${demoNoteHtml}
     ${groupsHtml}
-    <button type="button" class="view-all-btn" data-bounds='${JSON.stringify(COMBINED_BOUNDS)}'>Beide Standorte</button>`;
+    <button type="button" class="view-all-btn" data-bounds='${JSON.stringify(COMBINED_BOUNDS)}'>Alle erfassten Standorte</button>`;
 
+  // Zoom + active-state wiring: every element carrying data-bounds, at any
+  // depth (Standort row, Untergebiet row, the "Alle erfassten" button).
   container.querySelectorAll('[data-bounds]').forEach((el) => {
     el.addEventListener('click', (evt) => {
       evt.stopPropagation();
       fly(JSON.parse(el.dataset.bounds));
+      setActive(el);
+      // Clicking a Standort name also reveals its Untergebiete - one click,
+      // both effects - rather than requiring a separate chevron click.
+      if (el.dataset.expand) {
+        const panel = document.getElementById(el.dataset.expand);
+        const head = container.querySelector(`[aria-controls="${el.dataset.expand}"]`);
+        if (panel) panel.hidden = false;
+        if (head) head.setAttribute('aria-expanded', 'true');
+      }
     });
   });
 
-  container.querySelectorAll('.view-group-head').forEach((head) => {
-    const chevWrap = head.querySelector('.chev-wrap');
-    chevWrap.addEventListener('click', () => {
+  // Expand/collapse wiring: every head at any depth (ServiceCenter, Standort
+  // chevron), generalized from one selector since both levels use the same
+  // aria-expanded/aria-controls/hidden contract.
+  container.querySelectorAll('[aria-controls]').forEach((head) => {
+    head.addEventListener('click', (evt) => {
+      evt.stopPropagation();
       const panel = document.getElementById(head.getAttribute('aria-controls'));
+      if (!panel) return;
       const open = head.getAttribute('aria-expanded') === 'true';
       head.setAttribute('aria-expanded', String(!open));
       panel.hidden = open;
