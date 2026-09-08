@@ -12,9 +12,11 @@ let's do \<next thing\>."*
 **v1 built and verified, deployed. Full ServiceCenter/Standort/Untergebiet
 nav tree added 2026-09-07, sidebar/basemap polish pass, a committed
 verification harness (`tools/verify.py`), a rebuilt WiE popup matching the
-client's QGIS form, a presentation pass on that popup, and the sidebar's
-Standort rows boxed to match that popup group all added 2026-09-08** (see
-the dated entries under "Completed").
+client's QGIS form, a presentation pass on that popup, the sidebar's
+Standort rows boxed to match that popup group, and a small four-item
+wording/styling polish pass (popup header order, sidebar title casing, demo
+note and tooltip wording) all added 2026-09-08** (see the dated entries
+under "Completed").
 Repo: https://github.com/maptransfer/nl_webmap (public — transferred from
 personal account `TheGeoTheo` to the `maptransfer` org)
 **Live: https://maptransfer.github.io/nl_webmap/** — GitHub Pages, built
@@ -851,6 +853,66 @@ first Ratzeburg Untergebiet's bookmark is centred at lon ≈ 10.744, not at the
 town's ≈ 10.79, so asserting a hand-guessed coordinate fails against correct
 behaviour. Expand the group first, and compare against the element's own
 `data-bounds`.
+
+### 2026-09-08 — four small sales-demo wording/styling fixes
+
+**Why:** a review pass ahead of the client pitch surfaced four small, purely
+cosmetic rough edges — none touching data, style layers or navigation logic.
+
+**What changed** (four independent commits):
+- **WiE popup header order swapped** (`367d9e0`) — `js/popups.js` `weBody()`:
+  the header led with `we_bezeichnung` (a long descriptive string) in the
+  bold `.title` style, with the WiE id beneath it as a small muted
+  `.subtitle` — backwards from what a reader looks for first when scanning
+  popups. Only the two `<p>` elements' *content* was swapped; classes, markup
+  and CSS are untouched, so the existing styling (`14px`/`700` for `.title`,
+  `12px`/`#5a2b29` for `.subtitle`) now applies to the swapped content
+  automatically. `tools/verify.py`'s `wie_popup_opens` check asserts the
+  popup's title/subtitle against the
+  clicked feature's own properties, so its expected pair and assertion
+  messages were updated in the same commit — required for the check to stay
+  green, not a separate concern.
+- **Sidebar demo note reworded** (`0704ba1`) — `js/app.js`: "Demo: 2 von 36
+  …" → "Demo-App: 2 von 36 …", clearer that the *app* is the demo, not the
+  client's data. Counters stay computed from `areas.js`/`bookmarks.js`,
+  unchanged. The first-load toast's separate "Demo-Datenstand:" phrase (about
+  the data snapshot, not the app) was deliberately left alone.
+- **Sidebar + tab title uppercased** (`8730708`) — `css/app.css`:
+  `text-transform: uppercase` + `letter-spacing: .03em` added to
+  `.sidebar-head h1`, rather than retyping the element, so the document text
+  stays mixed-case ("Neue Lübecker") for copy/paste and assistive tech while
+  rendering as "NEUE LÜBECKER". `index.html`'s `<title>` was changed
+  literally (there's no CSS lever for a tab title). The map's `aria-label`
+  and every "Neue Lübecker" in the `.md` docs were left as is — user's
+  explicit scope choice.
+- **Tooltip wording unified** (`0800e8b`) — `js/app.js`: two different
+  "not yet imported" tooltips existed — the empty-ServiceCenter row said
+  "Wird in einem späteren Schritt importiert", the grey Standort chips said
+  "Noch nicht importiert" (capital N). Both now read "noch nicht
+  importiert", matching the visible `.pending-label` text already used in
+  the same tree.
+
+**Verified** (headless Chrome over CDP; `tools/verify.bat` plus a scratch
+script reusing its `Page`/`Chrome`/`CDP` classes, per the established
+pattern — script itself not committed):
+- `tools\verify.bat` 4/4 green before any edit, after the popup-swap commit,
+  and again at the final committed state (`console_clean` included, so no
+  new console/network errors).
+- Popup: clicked a real WiE polygon (`we_id 228`) — title reads "WiE 0228"
+  at computed `14px`/`700`, subtitle reads the feature's own
+  `we_bezeichnung` ("AH, Schäferweg 17-19") at computed `12px`/
+  `rgb(90, 43, 41)`, neither line wraps (`getClientRects().length === 1`),
+  popup measured 332px wide — no wider than before the swap, since the
+  shorter WiE-id line is now the one styled larger.
+- Sidebar note: `.views-demo-note` textContent starts with "Demo-App: 2 von
+  36 Standorten erfasst …"; the old "Demo:" prefix is absent from the DOM.
+- Title: `.sidebar-head h1` computed `text-transform === 'uppercase'` while
+  `textContent` stays `'Neue Lübecker'`, the heading doesn't wrap, and
+  `document.title` starts with `'NEUE LÜBECKER'`.
+- Tooltips: every `.sc-head--empty` and every `.chip` (13 total) carries
+  `title === 'noch nicht importiert'`; neither of the two old strings
+  ("Wird in einem späteren Schritt importiert", "Noch nicht importiert")
+  appears anywhere in the page's HTML.
 
 ## Known issues / blockers
 
