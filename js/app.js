@@ -308,7 +308,7 @@ function openPopup(map, lngLat, hits, activeIndex) {
       <div class="pending">
         <span class="pending-label">noch nicht importiert</span>
         <ul class="chip-list">
-          ${pending.map((r) => `<li class="chip" title="Noch nicht importiert">${esc(r.standort.name)}</li>`).join('')}
+          ${pending.map((r) => `<li class="chip" title="noch nicht importiert">${esc(r.standort.name)}</li>`).join('')}
         </ul>
       </div>` : '';
 
@@ -321,7 +321,7 @@ function openPopup(map, lngLat, hits, activeIndex) {
     if (!scHasData) {
       return `
         <div class="sc-group">
-          <div class="sc-head sc-head--empty" title="Wird in einem späteren Schritt importiert">
+          <div class="sc-head sc-head--empty" title="noch nicht importiert">
             <span class="sc-name">${esc(sc.name)}</span>
             <span class="sc-cnt">${imported.length} von ${resolved.length}</span>
           </div>
