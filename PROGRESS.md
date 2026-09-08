@@ -11,9 +11,9 @@ let's do \<next thing\>."*
 
 **v1 built and verified, deployed. Full ServiceCenter/Standort/Untergebiet
 nav tree added 2026-09-07, sidebar/basemap polish pass, a committed
-verification harness (`tools/verify.py`), and a rebuilt WiE popup matching
-the client's QGIS form all added 2026-09-08** (see the dated entries under
-"Completed").
+verification harness (`tools/verify.py`), a rebuilt WiE popup matching the
+client's QGIS form, and a presentation pass on that popup all added
+2026-09-08** (see the dated entries under "Completed").
 Repo: https://github.com/maptransfer/nl_webmap (public — transferred from
 personal account `TheGeoTheo` to the `maptransfer` org)
 **Live: https://maptransfer.github.io/nl_webmap/** — GitHub Pages, built
@@ -646,6 +646,123 @@ above):
   under a matching heading.
 - Console clean apart from the pre-existing favicon 404.
 
+### 2026-09-08 — WiE popup presentation pass (width, bullets, group header)
+
+**Why:** reviewing the QGIS-form popup (previous entry, commit `73bf735`) on
+screen surfaced four presentation problems — all cosmetic, all visible in the
+sales demo:
+1. Lines wrapped. The popup was pinned to a hard 420px and the label column
+   was a percentage of it (`flex: 0 0 46%`), so long labels and values broke
+   onto a second line with plenty of screen to spare.
+2. Bullets appeared at random: `listValue()` emitted a `<ul><li>` for *every*
+   field it handled, including single-entry ones, while genuinely single-value
+   fields went through `esc(txt(...))` as plain text. "Baujahre • 1960" had a
+   bullet, "PLZ 22926" did not, for no reason a reader could see.
+3. "Lage" had to start collapsed.
+4. "Lage" didn't read as an expandable group — tiny muted uppercase text with
+   the browser's default triangle looked like a caption, not a control.
+
+**Item 3 needed no code change, and here's why it looked broken.** The shipped
+code already called `group('Lage', lageRows, { open: false })`, and `group()`
+emits the `open` attribute only when that flag is true. Verified twice: the
+deployed `js/popups.js` was re-fetched and inspected, and a CDP check confirmed
+`details.open === false` on first render. What had been seen was the previous
+session's screenshot, in which the screenshot script **deliberately** set
+`d.open = true` so both sections fit one image. A regression assertion was added
+instead of a fix (see below).
+
+**Design decisions (user's choice from options):**
+- Multi-value fields render as **plain stacked lines, no marker of any kind**.
+  Most form-like, matches the QGIS aesthetic the popup mirrors, adds no width.
+- "Lage" gets a **pink tinted header bar with a rotating chevron, boxed by a
+  thin border** — the tint (`#fae3df`) is a lighter shade of `.popup-head`'s
+  `#f9d6d2`, tying the section to the WiE layer's identity colour.
+
+**What changed:**
+- `css/app.css` — the bulk of it:
+  - `.maplibregl-popup` cap `420px` → `min(92vw, 560px)`, and `.popup` gained
+    `width: max-content; max-width: 100%`. `max-content` is what does the work:
+    the popup becomes as wide as its widest *unwrapped* line and only wraps
+    once the cap binds, so over-long content degrades gracefully instead of
+    overflowing. `scrollbar-gutter: stable` reserves the scrollbar up front —
+    without it, a scrollbar appearing after layout narrows the content box and
+    re-introduces the very wrapping this removes.
+  - New `.popup-rows` two-column grid (`max-content minmax(0, 1fr)`) with
+    `.popup-row { display: contents }`, so `.k`/`.val` become the grid items
+    and the label column is exactly as wide as the longest label. Dropped
+    `flex: 0 0 46%`, `hyphens: auto` and `word-break: break-word` — all three
+    existed to *encourage* wrapping.
+  - `.popup-group` boxed (border + radius) with a tinted, full-width
+    `<summary>` bar; default disclosure triangle suppressed via
+    `list-style: none` **plus** `::-webkit-details-marker { display: none }`.
+  - The existing shared chevron rule was **extended** rather than duplicated:
+    `[aria-expanded="true"] .chev, details[open] > summary .chev` — `<details>`
+    signals state via `open`, the sidebar via `aria-expanded`, one rule now
+    covers both.
+- `js/popups.js`:
+  - `listValue()` returns **plain text for a single entry** instead of a
+    one-item `<ul>` (keeps `NA` for zero, `<ul>` for 2+). The single-entry path
+    still honours `titleFor`, wrapping in a `<span title="…">` — that's what
+    keeps the raw 20-char Flurstückskennzeichen on hover in the common
+    one-Flurstück case.
+  - New `rowsBlock()` helper wrapping a run of `row()` output in
+    `.popup-rows`. **All four** body builders now emit through it — the three
+    unreachable ones (`gebaeudeBody`/`flurstueckBody`/`grundbuchBody`) too,
+    because `display: contents` means a row only lays out inside that grid, and
+    the "re-enabling a layer is a config flag, not a popup rewrite" invariant
+    has to keep holding.
+  - New module-level `CHEV` const carrying the sidebar's exact chevron SVG, so
+    there is one chevron shape in the app; `group()` puts it in the summary.
+- `js/app.js` — `new maplibregl.Popup({ maxWidth: '420px' })` → `'560px'`. This
+  sets an **inline** max-width on the popup container, so leaving it would have
+  capped the popup regardless of the CSS. Commented as needing to stay in sync
+  with the `.maplibregl-popup` rule (CSS keeps the `min(92vw, …)` clamp and wins
+  via `!important`; the JS value exists because MapLibre defaults to 240px).
+- `tools/verify.py` — **one assertion** added inside the existing
+  `wie_popup_opens` check (not a new check): every `.popup-group` is
+  **not** `open` on first render. Justified against the project's "don't add
+  checks mirroring high-churn UI" policy because it is an explicitly restated
+  requirement rather than a speculative guard, and it locks one boolean rather
+  than the popup's shape. The rest of this pass (widths, bullets, tint) stays
+  out of the harness — that *is* the churning presentation detail the policy
+  warns about.
+
+**Sizing budget, measured from the data before choosing the cap** (`ogrinfo`
+against the PMTiles): longest label `ALKIS Nutzungsbezeichnungen` ≈ 175px;
+longest single value is the 52-char `we_bezeichnung`
+(`AH, Hermann-Löns-Str. 1,1a,3, Immanuel-Kant-Str. 2-4`) ≈ 400px, which is the
+popup *title* and the widest element in it; individual address entries are only
+~20 chars (lists are long vertically, not horizontally — up to 9 entries,
+`Gartenholz 54…70`). So 560px was picked as a cap that rarely binds.
+
+**Verified** (headless Chrome over CDP, `serve_range.py`; script in the session
+scratchpad, not committed — 21 assertions, all passed):
+- `tools\verify.bat` 4/4 green, with `wie_popup_opens` now running 8 assertions
+  instead of 7 (the new collapsed-group guard).
+- **No wrapping**, tested as `el.getClientRects().length === 1` per element —
+  the direct DOM test for "occupies exactly one line box" — across every label,
+  every single-line value and every list entry. Held on the typical feature, on
+  the widest-title feature in the dataset, and on the 9-address feature.
+- **Content-fits, doesn't just widen the cap**: the typical WiE renders at
+  **332px** (down from the old fixed 420px), a short feature at **297px**, and
+  the widest-title feature at **400px** — all under the 560px cap.
+- **Bullets gone**: zero one-item `<ul>`s in the popup, and computed
+  `list-style-type` on the remaining multi-entry lists is `none`.
+- **"Lage" collapsed** (`details.open === false`) before any interaction;
+  clicking the summary flips it open. Summary has a real background
+  (`rgb(250, 227, 223)`), its default marker is suppressed
+  (`list-style-type: none`), it carries the shared `.chev`, and the chevron's
+  computed transform changes `none` → `matrix(0, 1, -1, 0, 0, 0)` on open.
+- **9-entry address list** still collapses to 4 visible + a "+5 weitere"
+  expander, with no entry wrapping.
+- **The three unreachable builders still lay out**: called `buildPopupHtml()`
+  directly with synthetic `gebaeude_ansicht` / `flurstuecke` /
+  `grundbuch_ansicht` hits — each produced a `.popup-rows` grid with
+  `display: contents` rows and nothing wrapping (291 / 325 / 237px wide).
+- Screenshots of both collapsed and expanded states captured and reviewed.
+- Console/network clean, zero events (not even the usual favicon 404 on this
+  run).
+
 ## Known issues / blockers
 
 - **DB password in `scripts/export_pgis_layers.bat` needs rotating.** The
@@ -677,9 +794,9 @@ above):
 ## Next steps
 
 None requested. The sidebar/basemap polish pass, the `tools/verify.py`
-harness, and the QGIS-form-matching WiE popup are all built and verified
-(see the three 2026-09-08 entries above) — awaiting review or a specific
-next ask.
+harness, the QGIS-form-matching WiE popup and its presentation pass are all
+built and verified (see the four 2026-09-08 entries above) — awaiting review
+or a specific next ask.
 
 Small things noticed and deliberately left alone:
 - `js/areas.js` is hand-written and will drift silently if the client's org

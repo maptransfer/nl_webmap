@@ -6,11 +6,31 @@ function esc(s) {
   return String(s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 }
 
-/** Renders a list value as a <ul>, collapsing beyond 4 entries with a
- *  "+N weitere" expander. Falls back to NA on an empty list. Each item can
- *  carry a title= (e.g. the raw, undecoded Flurstückskennzeichen). */
+/** The one chevron shape in the app - same markup the sidebar's collapsible
+ *  heads use (see initAreaPicker in js/app.js), so <details> groups here and
+ *  aria-expanded rows there can't drift apart visually. Rotated on open by a
+ *  shared rule in css/app.css. */
+const CHEV = `<svg class="chev" viewBox="0 0 24 24" width="13" height="13" aria-hidden="true">
+      <path d="M9 6l6 6-6 6" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
+    </svg>`;
+
+/** Renders a list value, collapsing beyond 4 entries with a "+N weitere"
+ *  expander. Falls back to NA on an empty list. Each item can carry a title=
+ *  (e.g. the raw, undecoded Flurstückskennzeichen).
+ *
+ *  A SINGLE entry renders as plain text, not a one-item <ul>: mixing
+ *  list-rendered single values with the plainly-rendered ones (plz, gemeinde,
+ *  az_alt) put a bullet on some rows and not others for no reason a reader
+ *  could see. Multi-entry lists render as unmarked stacked lines - the
+ *  list-style is stripped in css/app.css, so the <ul> is a line-breaking
+ *  device, not a visible bullet list. */
 function listValue(items, { titleFor } = {}) {
   if (!items || items.length === 0) return NA;
+  if (items.length === 1) {
+    const raw = titleFor ? titleFor(items[0], 0) : null;
+    const text = esc(items[0]);
+    return raw ? `<span title="${esc(raw)}">${text}</span>` : text;
+  }
   const li = (v, idx) => {
     const raw = titleFor ? titleFor(v, idx) : null;
     return `<li${raw ? ` title="${esc(raw)}"` : ''}>${esc(v)}</li>`;
@@ -32,9 +52,18 @@ function row(label, valueHtml) {
   return `<div class="popup-row"><span class="k">${esc(label)}</span><span class="val">${valueHtml}</span></div>`;
 }
 
+/** Wraps a run of row() output in the two-column grid it needs. `.popup-row`
+ *  is `display: contents` in css/app.css - its .k/.val become grid items of
+ *  THIS element - so rows only lay out correctly inside a .popup-rows block.
+ *  Every builder below emits its rows through here; don't interpolate row()
+ *  output straight into a popup body. */
+function rowsBlock(rowsHtml) {
+  return `<div class="popup-rows">${rowsHtml}</div>`;
+}
+
 function group(title, rowsHtml, { open = true } = {}) {
   if (!rowsHtml.trim()) return '';
-  return `<details class="popup-group"${open ? ' open' : ''}><summary>${esc(title)}</summary>${rowsHtml}</details>`;
+  return `<details class="popup-group"${open ? ' open' : ''}><summary>${CHEV}<span>${esc(title)}</span></summary>${rowsBlock(rowsHtml)}</details>`;
 }
 
 // ---- the `we` popup (priority) -------------------------------------------
@@ -93,7 +122,7 @@ function weBody(p) {
     ${header}
     <div class="popup-body">
       ${stats}
-      ${overviewRows}
+      ${rowsBlock(overviewRows)}
       ${group('Lage', lageRows, { open: false })}
     </div>`;
 }
@@ -110,7 +139,7 @@ function gebaeudeBody(p) {
     row(l.aktualitaet, esc(isoDate(p.aktualitaet)));
   return `
     <div class="popup-head"><p class="title">Gebäude</p><p class="subtitle">${esc(txt(p.funktion))}</p></div>
-    <div class="popup-body">${rows}</div>`;
+    <div class="popup-body">${rowsBlock(rows)}</div>`;
 }
 
 function flurstueckBody(p) {
@@ -127,7 +156,7 @@ function flurstueckBody(p) {
     row(l.we_id_primaer, esc(txt(p.we_id_primaer)));
   return `
     <div class="popup-head"><p class="title">Flurstück ${esc(txt(p.flstnr))}</p><p class="subtitle">${esc(txt(p.gemarkung))}</p></div>
-    <div class="popup-body">${rows}</div>`;
+    <div class="popup-body">${rowsBlock(rows)}</div>`;
 }
 
 function grundbuchBody(p) {
@@ -148,7 +177,7 @@ function grundbuchBody(p) {
     row(l.jahre_modernisierung, listValue(splitList(p.jahre_modernisierung)));
   return `
     <div class="popup-head"><p class="title">Grundbuch ${esc(txt(p.grundbuch))}</p><p class="subtitle">Blatt ${esc(txt(p.grundbuch_blatt))}</p></div>
-    <div class="popup-body">${stats}${rows}</div>`;
+    <div class="popup-body">${stats}${rowsBlock(rows)}</div>`;
 }
 
 // Only `we` is queryable (see the header of js/layers.js), so the three other

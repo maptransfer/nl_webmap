@@ -99,8 +99,10 @@ section.views h2 { border-top: none; padding-top: 0; margin-top: 4px; }
 }
 
 /* Chevron rotate-on-expand, shared by every collapsible head at any depth
-   (ServiceCenter, Standort). */
-[aria-expanded="true"] .chev { transform: rotate(90deg); }
+   (ServiceCenter, Standort) and by the popups' <details> groups, which
+   signal their state via `open` rather than aria-expanded. */
+[aria-expanded="true"] .chev,
+details[open] > summary .chev { transform: rotate(90deg); }
 
 .sc-group { margin-bottom: 4px; }
 
@@ -371,7 +373,12 @@ section.views h2 { border-top: none; padding-top: 0; margin-top: 4px; }
 
 /* ---------- popups ---------- */
 
-.maplibregl-popup { max-width: 420px !important; }
+/* Keep in sync with the `maxWidth` option passed to new maplibregl.Popup()
+   in js/app.js - that sets an INLINE max-width on this same element, which
+   would otherwise cap the popup below whatever is allowed here. This rule
+   wins via !important; the JS value exists only because MapLibre's own
+   default (240px) applies when the option is omitted. */
+.maplibregl-popup { max-width: min(92vw, 560px) !important; }
 .maplibregl-popup-content {
   padding: 0;
   border-radius: 8px;
@@ -380,8 +387,16 @@ section.views h2 { border-top: none; padding-top: 0; margin-top: 4px; }
 }
 
 .popup {
+  /* Size to the widest line the content actually needs, so no row wraps
+     while there's room on screen, but never past the cap above. */
+  width: max-content;
+  max-width: 100%;
   max-height: 60vh;
   overflow-y: auto;
+  /* Reserve the scrollbar's width up front: letting it appear after layout
+     would narrow the content box and re-introduce the wrapping this is
+     meant to prevent. */
+  scrollbar-gutter: stable;
 }
 .popup-head {
   padding: 10px 14px;
@@ -402,25 +417,57 @@ section.views h2 { border-top: none; padding-top: 0; margin-top: 4px; }
 .popup-stat .n { font-size: 16px; font-weight: 700; display: block; }
 .popup-stat .lbl { font-size: 10.5px; color: var(--ui-muted); display: block; margin-top: 1px; }
 
-.popup-group { margin-top: 10px; }
-.popup-group summary {
-  font-size: 11px;
+/* Collapsible section (currently just "Lage" in the WiE popup), boxed and
+   given a tinted bar so it reads as a control rather than a caption. The
+   tint is a lighter shade of .popup-head's #f9d6d2, tying the section to the
+   WiE layer's identity colour. */
+.popup-group {
+  margin-top: 12px;
+  border: 1px solid #f0cdc7;
+  border-radius: 6px;
+  overflow: hidden;
+}
+.popup-group > summary {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  padding: 7px 10px;
+  background: #fae3df;
+  color: #5a2b29; /* same as .popup-head .subtitle */
+  font-size: 11.5px;
+  font-weight: 600;
   text-transform: uppercase;
-  letter-spacing: .03em;
-  color: var(--ui-muted);
+  letter-spacing: .04em;
   cursor: pointer;
-  padding: 2px 0;
+  list-style: none; /* drop the default disclosure triangle - the .chev replaces it */
 }
-.popup-group[open] summary { margin-bottom: 4px; }
+.popup-group > summary::-webkit-details-marker { display: none; }
+.popup-group > summary:hover { background: #f7d8d3; }
+.popup-group[open] > summary { border-bottom: 1px solid #f0cdc7; }
+.popup-group > summary .chev {
+  width: 13px; height: 13px; flex: 0 0 auto;
+  transition: transform .15s ease;
+}
+.popup-group .popup-rows { padding: 8px 10px; }
 
-.popup-row { display: flex; gap: 8px; padding: 2px 0; font-size: 12.5px; }
-.popup-row .k {
-  flex: 0 0 46%; /* was 42% - "ALKIS Nutzungsbezeichnungen" needs the room */
-  color: var(--ui-muted);
-  hyphens: auto;
+/* Two-column grid sized to the longest label, so the key column is exactly
+   as wide as it needs to be instead of a percentage of a fixed popup width.
+   .popup-row is display:contents, so its .k/.val are the actual grid items -
+   which is why rows must always sit inside a .popup-rows block (see
+   rowsBlock() in js/popups.js). */
+.popup-rows {
+  display: grid;
+  grid-template-columns: max-content minmax(0, 1fr);
+  column-gap: 14px;
+  font-size: 12.5px;
 }
-.popup-row .val { flex: 1; word-break: break-word; }
-.popup-row .val ul { margin: 0; padding-left: 16px; }
+.popup-row { display: contents; }
+.popup-row .k { white-space: nowrap; padding: 2px 0; color: var(--ui-muted); }
+.popup-row .val { padding: 2px 0; min-width: 0; }
+/* Multi-value fields stack as unmarked lines: the <ul> is a line-breaking
+   device here, not a visible bullet list. Single values never reach this -
+   listValue() renders them as plain text (see js/popups.js). */
+.popup-row .val ul { list-style: none; margin: 0; padding-left: 0; }
 .popup-row .val li { margin: 1px 0; }
 
 .popup-more { margin-top: 10px; padding-top: 8px; border-top: 1px solid #ececec; }

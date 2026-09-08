@@ -777,6 +777,7 @@ def check_wie_popup_opens(page, a):
         subtitle: popup.querySelector('.popup-head .subtitle')?.textContent ?? null,
         statCount: popup.querySelectorAll('.popup-stat').length,
         groupCount: popup.querySelectorAll('.popup-group').length,
+        openGroupCount: popup.querySelectorAll('.popup-group[open]').length,
         scrollTop: box ? box.scrollTop : null,
         overflow: box ? (box.scrollHeight > box.clientHeight) : false,
       };
@@ -787,6 +788,13 @@ def check_wie_popup_opens(page, a):
     a.eq(popup["subtitle"], expected["subtitle"], "popup subtitle equals the clicked feature's own WiE id (padded)")
     a.eq(popup["statCount"], 6, "popup shows all 6 stat tiles")
     a.ok(popup["groupCount"] >= 1, "popup shows at least one collapsible detail group")
+
+    # Every detail group starts CLOSED - the popup must lead with the overview
+    # fields, with "Lage" behind one click. An explicitly restated requirement
+    # (asked for twice), so it is worth locking in, unlike the rest of the
+    # popup's presentation detail, which churns and is deliberately left out
+    # of this harness.
+    a.eq(popup["openGroupCount"], 0, "every collapsible group starts collapsed on first render")
 
     # Regression guard for the fixed a11y-autoscroll bug (PROGRESS.md v1 bug
     # #2): MapLibre's popup focus handling scrolls .popup down on open; the

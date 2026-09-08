@@ -189,7 +189,11 @@ function openPopup(map, lngLat, hits, activeIndex) {
     return container;
   }
 
-  const popup = new maplibregl.Popup({ maxWidth: '420px', closeButton: true })
+  // maxWidth sets an INLINE max-width on the popup container, so it caps the
+  // popup regardless of CSS - keep it in sync with the .maplibregl-popup rule
+  // in css/app.css, which adds the min(92vw, ...) mobile clamp on top and wins
+  // via !important. Passing it at all is necessary: MapLibre defaults to 240px.
+  const popup = new maplibregl.Popup({ maxWidth: '560px', closeButton: true })
     .setLngLat(lngLat)
     .setDOMContent(render(activeIndex))
     .addTo(map);
