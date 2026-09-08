@@ -414,7 +414,11 @@ section.views h2 { border-top: none; padding-top: 0; margin-top: 4px; }
 .popup-group[open] summary { margin-bottom: 4px; }
 
 .popup-row { display: flex; gap: 8px; padding: 2px 0; font-size: 12.5px; }
-.popup-row .k { flex: 0 0 42%; color: var(--ui-muted); }
+.popup-row .k {
+  flex: 0 0 46%; /* was 42% - "ALKIS Nutzungsbezeichnungen" needs the room */
+  color: var(--ui-muted);
+  hyphens: auto;
+}
 .popup-row .val { flex: 1; word-break: break-word; }
 .popup-row .val ul { margin: 0; padding-left: 16px; }
 .popup-row .val li { margin: 1px 0; }

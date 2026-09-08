@@ -1,6 +1,10 @@
-// German field labels (the QMLs contain zero <alias> entries, so none of
-// this can be imported - every label here is authored by hand) plus value
-// formatters used by popups.js.
+// German field labels plus the value formatters used by popups.js.
+//
+// LABELS.we is taken VERBATIM from the <aliases> block of qml/mv_we.qml
+// (lines 526-550) - the same labels the client reads in the QGIS attribute
+// form for demo.mv_we. Don't "improve" them here; they exist to make the web
+// popup recognisable as their own form. The other six layers' QMLs really do
+// carry no <alias> entries, so those blocks are hand-authored.
 
 export const NA = '–';
 
@@ -75,28 +79,36 @@ export function flstKennz(k) {
 export const LABELS = {
   we: {
     we_id: 'WiE-Nr.',
-    we_id_padded: 'WiE-Nr.',
-    we_bezeichnung: 'Bezeichnung',
+    we_id_padded: 'WiE',
+    we_bezeichnung: 'WiE Bezeichnung',
+    // Kept in the dictionary though no popup row uses it: the QGIS form has
+    // a Standort row, but it is byte-identical to `gemeinde` on all 119
+    // rows (verified via ogrinfo), so the popup deliberately shows only
+    // Gemeinde. Re-adding a Standort row is a one-liner, not a re-derivation.
     standort: 'Standort',
     gemeinde: 'Gemeinde',
     plz: 'PLZ',
-    az_alt_werte: 'Altes Aktenzeichen',
-    az_alt_padded: 'Altes Aktenzeichen',
-    adressen_sap: 'Adressen (SAP)',
-    adressen_alkis: 'Adressen (ALKIS)',
-    funktionen: 'Gebäudefunktion(en)',
-    nutzungsbezeichnungen: 'Nutzungsbezeichnung',
-    nutzungsarten: 'Nutzungsart(en)',
-    baujahre: 'Baujahr(e)',
-    jahre_modernisierung: 'Modernisierung',
-    anzahl_hauseingaenge: 'Hauseingänge',
-    anzahl_adressen: 'Adressen',
-    anzahl_flurstuecke: 'Flurstücke',
-    anzahl_wohneinheiten: 'Wohneinheiten',
-    anzahl_gewerbe: 'Gewerbeeinheiten',
-    anzahl_mietobjekte: 'Mietobjekte',
-    flstkennzeichen: 'Flurstückskennzeichen',
-    gemarkungen: 'Gemarkung(en)',
+    az_alt_werte: 'Alt-Az',
+    az_alt_padded: 'Alt-Az',
+    adressen_sap: 'SAP Adressen',
+    adressen_alkis: 'ALKIS Adressen',
+    funktionen: 'ALKIS Funktionen',
+    nutzungsbezeichnungen: 'ALKIS Nutzungsbezeichnungen',
+    nutzungsarten: 'SAP Nutzungsarten',
+    baujahre: 'Baujahre',
+    jahre_modernisierung: 'Modernisiert',
+    // The anzahl_* labels below are unused by weBody(): the popup's badge
+    // row already covers these six counts with its own short labels, so no
+    // popup row repeats them as text. Kept here so re-adding one is a
+    // one-liner, not a re-derivation.
+    anzahl_hauseingaenge: 'Anz. Hauseingänge',
+    anzahl_adressen: 'Anz. Adressen',
+    anzahl_flurstuecke: 'Anz. Flurstücke',
+    anzahl_wohneinheiten: 'Anz. Wohneinheiten',
+    anzahl_gewerbe: 'Anz. Gewerbe',
+    anzahl_mietobjekte: 'Anz. Mietobjekte',
+    flstkennzeichen: 'Flst. Kennz.',
+    gemarkungen: 'Gemarkung',
   },
   adressen: {
     strasse: 'Straße',

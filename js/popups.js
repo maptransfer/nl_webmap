@@ -57,40 +57,44 @@ function weBody(p) {
       ${stat('Flurstücke', 'anzahl_flurstuecke')}
     </div>`;
 
-  // standort omitted: verified identical to gemeinde on all 119 rows
-  const standortRows = row(labels.gemeinde, esc(txt(p.gemeinde))) + row(labels.plz, esc(txt(p.plz)));
-
-  const adressenRows =
-    row(labels.adressen_sap, listValue(splitList(p.adressen_sap))) +
-    row(labels.adressen_alkis, listValue(splitList(p.adressen_alkis)));
-
-  const gebaeudeRows =
+  // Mirrors the flat top section of the QGIS "Übersicht" form (mv_we.qml)
+  // above its "Hauseingänge / Mietobjekte" group box - always visible, no
+  // <details> wrapper. WiE / WiE Bezeichnung are the header's subtitle/title
+  // above, so they aren't repeated here. Alt-Az is always rendered (– when
+  // null), unlike the old conditional "Altdaten" group, since the QGIS form
+  // shows it unconditionally too.
+  const overviewRows =
+    row(labels.az_alt_werte, esc(txt(p.az_alt_padded || p.az_alt_werte))) +
     row(labels.baujahre, listValue(splitList(p.baujahre))) +
     row(labels.jahre_modernisierung, listValue(splitList(p.jahre_modernisierung))) +
-    row(labels.funktionen, listValue(splitList(p.funktionen))) +
+    row(labels.nutzungsarten, listValue(splitList(p.nutzungsarten))) +
     row(labels.nutzungsbezeichnungen, listValue(splitList(p.nutzungsbezeichnungen))) +
-    row(labels.nutzungsarten, listValue(splitList(p.nutzungsarten)));
+    row(labels.funktionen, listValue(splitList(p.funktionen)));
 
-  // Each entry decoded (Flur 7 - Flurstück 5/4); the raw 20-char
-  // kennzeichen stays available via title= since the decode is a
-  // convenience, not the authoritative identifier.
+  // Mirrors the QGIS form's "Lage" group box (collapsed by default here -
+  // the QGIS form has it open, but the popup is meant to lead with the
+  // overview). Standort omitted: verified identical to gemeinde on all 119
+  // rows, so showing it too would put the same value on screen twice; see
+  // the comment on LABELS.we.standort in js/fields.js. Anz. Adressen / Anz.
+  // Flurstücke also omitted here - the badge row above already covers them.
+  // Each Flurstückskennzeichen entry is decoded (Flur 7 - Flurstück 5/4);
+  // the raw 20-char kennzeichen stays available via title= since the decode
+  // is a convenience, not the authoritative identifier.
   const flstItems = splitList(p.flstkennzeichen);
-  const liegenschaftRows =
+  const lageRows =
+    row(labels.adressen_sap, listValue(splitList(p.adressen_sap))) +
+    row(labels.adressen_alkis, listValue(splitList(p.adressen_alkis))) +
+    row(labels.plz, esc(txt(p.plz))) +
+    row(labels.gemeinde, esc(txt(p.gemeinde))) +
     row(labels.gemarkungen, listValue(splitList(p.gemarkungen))) +
     row(labels.flstkennzeichen, listValue(flstItems.map(flstKennz), { titleFor: (_v, idx) => flstItems[idx] }));
-
-  const altVal = p.az_alt_padded || p.az_alt_werte;
-  const altdatenRows = altVal ? row(labels.az_alt_werte, esc(txt(altVal))) : '';
 
   return `
     ${header}
     <div class="popup-body">
       ${stats}
-      ${group('Standort', standortRows)}
-      ${group('Adressen', adressenRows)}
-      ${group('Gebäude & Nutzung', gebaeudeRows)}
-      ${group('Liegenschaft', liegenschaftRows)}
-      ${altdatenRows ? group('Altdaten', altdatenRows) : ''}
+      ${overviewRows}
+      ${group('Lage', lageRows, { open: false })}
     </div>`;
 }
 

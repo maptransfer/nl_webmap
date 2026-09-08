@@ -10,9 +10,10 @@ let's do \<next thing\>."*
 ## Status
 
 **v1 built and verified, deployed. Full ServiceCenter/Standort/Untergebiet
-nav tree added 2026-09-07, sidebar/basemap polish pass and a committed
-verification harness (`tools/verify.py`) added 2026-09-08** (see the dated
-entries under "Completed").
+nav tree added 2026-09-07, sidebar/basemap polish pass, a committed
+verification harness (`tools/verify.py`), and a rebuilt WiE popup matching
+the client's QGIS form all added 2026-09-08** (see the dated entries under
+"Completed").
 Repo: https://github.com/maptransfer/nl_webmap (public — transferred from
 personal account `TheGeoTheo` to the `maptransfer` org)
 **Live: https://maptransfer.github.io/nl_webmap/** — GitHub Pages, built
@@ -552,6 +553,99 @@ yet": `config_invariants`, `dom_ids_unique`, `glyphs_load`,
 `queryable_scope`. Add one — or a new one — the next time a bug in that area
 actually happens.
 
+### 2026-09-08 — WiE popup rebuilt to mirror the QGIS "Übersicht" form
+
+**Why:** the client reads this data through the QGIS attribute form for
+`mv_we` (a screenshot of it prompted this change) — a specific field order,
+specific German labels, and two group boxes ("Hauseingänge / Mietobjekte",
+"Lage"). The popup built in v1 used its own invented grouping ("Standort",
+"Adressen", "Gebäude & Nutzung", "Liegenschaft", "Altdaten") and its own
+labels, which reads as a re-interpretation of their data rather than their
+own form, for a demo aimed at exactly the people who use that form daily.
+
+**Correction to a stale claim:** the header comment in `js/fields.js` said
+"the QMLs contain zero `<alias>` entries, so none of this can be imported —
+every label here is authored by hand". That's false for `mv_we.qml` — it
+carries a full `<aliases>` block (lines 526-550) and a complete
+`<attributeEditorForm>` (lines 686-807) whose structure matches the client's
+screenshot field-for-field. The labels below are read off that QML, not
+invented. (The other six layers' QMLs really do carry no aliases; the file
+header now says so explicitly instead of a blanket claim.)
+
+**What changed:**
+- `js/fields.js` — `LABELS.we` relabeled verbatim from the QML aliases:
+  `we_id_padded` "WiE" (was "WiE-Nr."), `we_bezeichnung` "WiE Bezeichnung",
+  `az_alt_*` "Alt-Az" (was "Altes Aktenzeichen"), `baujahre` "Baujahre",
+  `jahre_modernisierung` "Modernisiert", `nutzungsarten` "SAP Nutzungsarten",
+  `nutzungsbezeichnungen` "ALKIS Nutzungsbezeichnungen", `funktionen` "ALKIS
+  Funktionen", `adressen_sap`/`adressen_alkis` "SAP/ALKIS Adressen",
+  `gemarkungen` "Gemarkung", `flstkennzeichen` "Flst. Kennz.". The `anzahl_*`
+  labels and `standort` stay in the dictionary unused by any popup row (see
+  below), each with a one-line comment explaining why, so re-adding a row is
+  a one-liner rather than a re-derivation.
+- `js/popups.js` `weBody()` — replaced the five invented groups with two
+  sections matching the QGIS form's structure:
+  - A flat, always-visible block (no `<details>`) mirroring the form's top
+    section: Alt-Az, Baujahre, Modernisiert, SAP Nutzungsarten, ALKIS
+    Nutzungsbezeichnungen, ALKIS Funktionen, in that order. **Alt-Az now
+    always renders** (`–` when null) — the old code hid the whole "Altdaten"
+    group when null, but the QGIS form shows the field unconditionally.
+  - One `<details>` group titled "Lage" (SAP/ALKIS Adressen, PLZ, Gemeinde,
+    Gemarkung, Flst. Kennz.), **collapsed by default** (`{ open: false }`) —
+    the QGIS form has it open, but the popup is meant to lead with the
+    overview fields, per the user's explicit choice.
+  - `Anz. Hauseingänge`/`Anz. Mietobjekte`/`Anz. Wohneinheiten`/`Anz. Gewerbe`/
+    `Anz. Adressen`/`Anz. Flurstücke` — all six rows the QGIS form shows —
+    are **not rendered as rows**: the popup's existing badge grid already
+    shows these exact six numbers, so repeating them as text rows would put
+    every count on screen twice (user decision).
+  - `Standort` — a field the QGIS form does show — is **deliberately
+    omitted**: verified via
+    `ogrinfo -dialect SQLite -sql "SELECT standort, gemeinde, count(*) FROM we GROUP BY standort, gemeinde"`
+    that it is byte-identical to `gemeinde` on both groups covering all 119
+    rows (Ahrensburg/Ratzeburg). Showing both would put the same value on
+    screen twice for no information gain (user decision, made explicit in a
+    comment in both `popups.js` and `fields.js` so a future session comparing
+    against the screenshot doesn't "fix" it back in).
+  - `flstkennzeichen` keeps its existing decode (`flstKennz()`: "Flur 11 ·
+    Flurstück 186") with the raw 20-char string on `<li title=...>` hover —
+    unchanged from v1, since it's far more readable than QGIS's padded raw
+    string for a sales demo.
+- `css/app.css` — `.popup-row .k` widened from `flex: 0 0 42%` to `46%` plus
+  `hyphens: auto`, since "ALKIS Nutzungsbezeichnungen" is longer than any
+  label the popup carried before and would otherwise wrap awkwardly in the
+  420px-wide popup.
+
+**Verified** (headless Chrome over CDP, `serve_range.py`; scripts in the
+session scratchpad, not committed — pattern per "Build & test commands"
+above):
+- `tools\verify.bat`: 4/4 passed both before touching anything and again
+  after every edit — `wie_popup_opens` still asserts the popup title/subtitle
+  against the clicked feature's own tile properties, and the fixed
+  a11y-autoscroll guard (`scrollTop === 0`) is untouched by this change.
+- Clicked a real WiE polygon (`we_id 228`, Schäferweg 17-19, Ahrensburg):
+  the 6 flat rows render in the QGIS form's order with the new labels,
+  outside any `<details>`; exactly one `<details class="popup-group">`
+  exists, its `<summary>` reads "Lage", and it starts **not** `open`.
+  `Anz. Hauseingänge`/`Anz. Mietobjekte`/`Anz. Wohneinheiten`/`Anz. Gewerbe`/
+  `Anz. Adressen`/`Anz. Flurstücke`/`Standort` appear **nowhere** in the
+  popup's `textContent`. `PLZ` renders `22926` (plain `txt()`, not `num()`'s
+  thousands separator — QGIS's "22.926" is a display artifact of that tool,
+  not the underlying value). `Flst. Kennz.` shows "Flur 11 · Flurstück 186"
+  with the raw `01500101100186______` on hover.
+- Exercised `buildPopupHtml()` directly with synthetic properties built from
+  two real `ogrinfo`-queried rows: `we_id 1501` (real non-null
+  `az_alt_padded = '0038'`) rendered "Alt-Az: 0038" correctly; a 6-entry
+  `adressen_sap` list (real value from `we_id 323`) still rendered 4 visible
+  `<li>` + a "+2 weitere" expander revealing the remaining 2 on click —
+  `listValue()`'s existing collapse behaviour is unaffected by the
+  surrounding restructure.
+- Screenshot of the rendered popup (Lage expanded for the shot) compared
+  side-by-side against the client's QGIS screenshot: badge grid unchanged,
+  flat-row order and labels match, "Lage" reproduces the form's group box
+  under a matching heading.
+- Console clean apart from the pre-existing favicon 404.
+
 ## Known issues / blockers
 
 - **DB password in `scripts/export_pgis_layers.bat` needs rotating.** The
@@ -582,9 +676,10 @@ actually happens.
 
 ## Next steps
 
-None requested. The sidebar/basemap polish pass and the `tools/verify.py`
-harness are both built and verified (see the two 2026-09-08 entries above) —
-awaiting review or a specific next ask.
+None requested. The sidebar/basemap polish pass, the `tools/verify.py`
+harness, and the QGIS-form-matching WiE popup are all built and verified
+(see the three 2026-09-08 entries above) — awaiting review or a specific
+next ask.
 
 Small things noticed and deliberately left alone:
 - `js/areas.js` is hand-written and will drift silently if the client's org
