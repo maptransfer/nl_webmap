@@ -10,8 +10,9 @@ let's do \<next thing\>."*
 ## Status
 
 **v1 built and verified, deployed. Full ServiceCenter/Standort/Untergebiet
-nav tree added 2026-09-07, sidebar/basemap polish pass added 2026-09-08**
-(see the dated entries under "Completed").
+nav tree added 2026-09-07, sidebar/basemap polish pass and a committed
+verification harness (`tools/verify.py`) added 2026-09-08** (see the dated
+entries under "Completed").
 Repo: https://github.com/maptransfer/nl_webmap (public — transferred from
 personal account `TheGeoTheo` to the `maptransfer` org)
 **Live: https://maptransfer.github.io/nl_webmap/** — GitHub Pages, built
@@ -34,35 +35,85 @@ it.
   curl -sD - -o /dev/null -H "Range: bytes=0-15" http://localhost:8000/data/neue-luebecker.pmtiles
   ```
   Must return `206 Partial Content` with `Content-Range: bytes 0-15/1823852`.
-- **No automated test suite exists.** Verification so far is manual +
-  headless-browser (see "Completed" below). Neither Node/Playwright nor
-  `chromium-cli` are installed on this machine; the one-off verification
-  script used the Chrome DevTools Protocol directly via Python +
-  `websocket-client` (`pip install websocket-client` into the OSGeo4W
-  Python), launching `chrome.exe --headless=new --remote-debugging-port=...
-  --remote-allow-origins=*` and driving it over the CDP WebSocket. That
-  script lived in the session scratchpad, not the repo — if a real test
-  suite is wanted later, this is the pattern to build from.
-  **Gotcha hit:** CDP's `Runtime.evaluate` persists top-level `const`/`let`
-  declarations across separate calls in the same execution context —
-  reusing a variable name in a later eval throws `SyntaxError: already
-  declared`, silently no-opping that eval. Wrap each eval in an IIFE
-  (`(() => { ... })()`) to avoid it.
-  **Gotcha hit (2026-09-07):** `map.queryRenderedFeatures(point, {layers})`
-  needs the point as a `Point` instance or an `[x, y]` **array**. Passing a
-  plain `{x, y}` object is silently taken as the *options* argument, so the
-  call queries the whole viewport and every layer appears to be hit at every
-  pixel — which looks like a styling/hit-test bug in the app rather than a
-  test-harness bug. Cost an hour of chasing the wrong thing.
-  **Gotcha hit (2026-09-07):** the first-load `#hint-toast` is bottom-centred
-  and overlays the lower map, swallowing synthetic clicks aimed at the canvas
-  there. Dismiss it (`document.getElementById('hint-dismiss').click()`)
-  before dispatching map clicks. `localStorage` keeps it dismissed for a real
-  user but a fresh headless profile always shows it.
-  **Note:** `/favicon.ico` 404s on every page load (the project ships none).
-  Harmless, predates all frontend work, but it will show up in any
-  console-cleanliness assertion — filter it rather than treating it as a
-  regression.
+- **Automated verification: `tools/verify.py`** (Windows launcher:
+  `tools/verify.bat`). A committed, reusable Chrome-DevTools-Protocol driver —
+  the pattern every prior session hand-wrote as a scratchpad throwaway (see
+  the git history before 2026-09-08 for what that looked like) is now a small
+  registry of independent, named checks:
+  ```
+  tools\verify.bat                    # all checks vs http://localhost:8000/
+  tools\verify.bat --list             # names + one-line descriptions
+  tools\verify.bat wie_popup_opens    # run a subset, by name
+  tools\verify.bat --url https://maptransfer.github.io/nl_webmap/
+  ```
+  Requires `websocket-client` in the interpreter that runs it (already present
+  in the OSGeo4W Python — `pip install websocket-client` on any other Python 3
+  that lacks it) and Chrome installed locally. Auto-starts `serve_range.py` on
+  a free-looking `localhost` port and tears it down afterward if nothing was
+  already listening; leaves an already-running server alone. Exit code `0`
+  all passed, `1` a check failed (gates a commit), `2` the harness itself
+  couldn't run (no Chrome, WebGL unavailable, unknown check name, ...).
+  **Scope, deliberately:** four checks — `map_loads`, `console_clean`,
+  `layer_checkboxes_toggle`, `wie_popup_opens` — chosen because they're the
+  *stable* half of the manual regression sweep the last two sessions each ran
+  by hand (see those dated entries below: "the 6 legend checkboxes still flip
+  their style layers' visibility", "the `we` popup still opens on click...").
+  A `sidebar_tree_structure` check was designed and deliberately **not**
+  added: the sidebar was the highest-churn part of the UI in both of those
+  sessions, so a check mirroring its exact shape would have needed editing in
+  the same session that changed the feature — duplicated work, not a
+  regression guard. Other candidates considered and dropped for the same
+  "no bug has occurred yet" reason: `config_invariants`, `dom_ids_unique`,
+  `glyphs_load`, `no_cdn_requests`, `import_completeness`, `default_view`,
+  `area_navigation`, `queryable_scope`. Add one of these — or a new one — the
+  next time a bug in that area actually happens; the registry is one
+  `@check(...)`-decorated function away from an addition that touches nothing
+  else. **These four are a regression floor, not full coverage** — a new
+  feature still needs its own verification, and a green *live* run verifies
+  the last pushed commit, not necessarily the working tree.
+  Expectations are derived at runtime by dynamically importing the app's own
+  `js/layers.js` / `js/bookmarks.js` / `js/fields.js` inside the browser
+  (confirmed viable on both `localhost` and the live Pages origin — neither
+  sends a CSP header, both serve `.js` with a JS MIME type), so adding or
+  removing a layer moves the expectations with it; nothing about layer count,
+  checkbox ids, or field names is hardcoded in the Python.
+  **Verified this session:** ran clean 4/4 against a manually-started
+  `serve.bat`, again via its own server auto-start/teardown, and again
+  against `https://maptransfer.github.io/nl_webmap/`. Proved it can actually
+  fail (not just always print PASS): a scratch `raster-opacity` edit was
+  caught by `map_loads` with a readable diff message, and renaming the `cb-`
+  checkbox-id prefix was caught by `layer_checkboxes_toggle` *and* by the
+  implicit console-error assertion every check gets for free (the id-mismatch
+  crashed `renderLegend` with a real `TypeError`) — both scratch edits
+  reverted before committing.
+  **Gotchas retired inside the tool** (comments at the point they're handled,
+  so a future check doesn't rediscover them): CDP's `Runtime.evaluate`
+  persists top-level `const`/`let` across calls in one execution context —
+  `Page.js()` always wraps in an async IIFE, making the
+  `SyntaxError: already declared` failure structurally impossible rather than
+  a rule to remember. `map.queryRenderedFeatures(point, {layers})` needs
+  `point` as an `[x, y]` **array** — a plain `{x, y}` object is silently read
+  as the *options* argument, making every layer look hit everywhere; every
+  call in the tool uses an array. The first-load `#hint-toast` overlays the
+  lower map and swallows synthetic clicks — `Page.goto()` dismisses it once
+  the page is ready, before any check runs. `/favicon.ico` 404s on every load
+  (the project ships none) and is filtered out rather than asserted absent,
+  since some headless configurations skip the fetch entirely.
+  **Gotchas found writing the tool (2026-09-08, this machine):** Chrome ≥137
+  refuses the software WebGL fallback in headless mode without
+  `--enable-unsafe-swiftshader` — without it MapLibre's context creation
+  fails, `map.on('load')` never fires, and every check times out with no
+  explanation; the tool's readiness gate pre-flights this explicitly.
+  `Input.dispatchMouseEvent` needs `clickCount: 1` on *both*
+  `mousePressed`/`mouseReleased`, or Chrome dispatches mousedown/mouseup with
+  no synthesized `click`, so MapLibre's click handler silently never runs.
+  The favicon 404 arrives as a `Log.entryAdded` (source `network`), **not** a
+  `Runtime.consoleAPICalled` — a console-API-only collector never sees it at
+  all, so the documented filter above would have looked like dead code; the
+  tool enables and collects from the `Log` domain too. Chrome on this machine
+  was already running, and a plain `chrome.exe --version` silently relayed to
+  it instead of executing standalone — a distinct `--user-data-dir` per run
+  avoids that handoff.
 
 ## Architecture decisions
 
@@ -409,6 +460,98 @@ above):
   (`visible`→`none`, restored after).
 - Console clean apart from the pre-existing favicon 404.
 
+### 2026-09-08 — committed verification harness (`tools/verify.py`)
+
+**Why:** every session so far (including the two above) hand-wrote a
+throwaway CDP driver from scratch, ran it once from the scratchpad, and threw
+it away — paying the same setup cost repeatedly and, this session confirmed,
+re-risking the same silent-failure traps (see below). The plumbing was worth
+committing; a speculative full check suite was not — see the scope note this
+entry ends with.
+
+**What changed:**
+- **New `tools/verify.py`** — a CDP-driven headless-Chrome harness structured
+  as an ordered registry of independent, named checks
+  (`@check("name", "description")`), each free to run alone
+  (`verify.bat some_check`) or as part of a full run. A shared `Page` class
+  (navigate, readiness-poll, eval, click/hover, screenshot,
+  console/network collection) is the reusable surface; a future session adds
+  a check by writing one decorated function against it.
+- **New `tools/verify.bat`** — launches it with the OSGeo4W Python (the only
+  real interpreter on this machine; `python` on `PATH` is the Microsoft Store
+  stub), mirroring `serve.bat`'s approach.
+- **Four checks**, chosen as the stable half of the manual sweep the last two
+  sessions each ran by hand rather than a full suite (see "Build & test
+  commands" above for the fuller reasoning and the list of candidates
+  considered and dropped):
+  - `map_loads` — style layer ids/order derived from `buildStyleLayers(LAYERS)`,
+    `nl` source shape, `basemap-osm` raster-opacity, `#error-banner` hidden.
+  - `console_clean` — the load-and-do-nothing baseline for the shared
+    console/network classifier every check gets for free (see below).
+  - `layer_checkboxes_toggle` — one checkbox per `LAYERS` entry, `checked`
+    matches `defaultVisible`, and toggling flips every id in `partIds(cfg)`.
+  - `wie_popup_opens` — finds a real rendered WiE pixel, clicks it, and
+    asserts the popup's title/subtitle against *that feature's own
+    properties* (via `pad4`/`txt` imported live from `js/fields.js`, not a
+    hardcoded id), plus the fixed a11y-autoscroll regression guard
+    (`scrollTop === 0`, only asserted when the popup actually overflows).
+  All four derive their expectations by dynamically importing the app's own
+  `js/layers.js` / `js/bookmarks.js` / `js/fields.js` **inside the browser**
+  at runtime (confirmed viable on both `localhost` and the live Pages origin
+  — neither sends a CSP header, both serve `.js` with a JS MIME type), so
+  adding or removing a layer moves the expectations with it.
+- **Every check gets an implicit trailing assertion for free**: no
+  unexpected console error/exception or failed network request occurred
+  during it (severity rules and the favicon/OSM exceptions are in
+  `SIGNIFICANT_WARNINGS`/`IGNORE_PATTERNS`/`NOTE_ONLY_PATTERNS` at the top of
+  the file). This is what turned a plain id-rename into a caught bug during
+  this session's own testing — see "Verified" below.
+
+**Verified** (this session, against a live-running instance each time, not a
+read-through):
+- `tools\verify.bat --list` prints all four names + descriptions;
+  `tools\verify.bat bogus_name` exits `2` with the valid names listed.
+- Full run against a manually-started `serve.bat`: 4/4 passed, and no
+  `[server]` line printed (confirms it left the already-running instance
+  alone).
+- Full run with nothing listening on `:8000`: `[server] no listener…` /
+  `[server] up (pid ...)` printed, 4/4 passed, and the spawned server was
+  gone afterward (confirmed via a follow-up connection attempt failing).
+- **Proved the harness can actually fail, not just always print PASS**: a
+  scratch edit nudging `basemap-osm`'s `raster-opacity` from `0.5` to `0.9`
+  in `js/app.js` was caught by `map_loads` with a readable
+  expected/got message; a scratch edit renaming the `cb-` checkbox-id prefix
+  to `chk-` in `js/legend.js` was caught by `layer_checkboxes_toggle`'s
+  missing-checkbox assertions *and*, independently, by the implicit
+  console-error assertion (the id mismatch left `renderLegend()` calling
+  `.addEventListener` on `null`, a real `TypeError` the tool surfaced
+  verbatim). Both scratch edits were reverted before this commit — confirmed
+  via `git diff` showing no changes to either file.
+- Full run against `https://maptransfer.github.io/nl_webmap/`: 4/4 passed,
+  same counts as local, confirming the harness works unmodified against the
+  `/nl_webmap/` subdirectory deploy.
+
+**Found while building it** (all now retired inside the tool, with comments
+at the point each is handled — see "Build & test commands" for the details):
+Chrome ≥137 refuses the software WebGL fallback in headless mode without
+`--enable-unsafe-swiftshader`; `Input.dispatchMouseEvent` needs
+`clickCount: 1` on both press and release or no `click` fires; the favicon
+404 arrives via `Log.entryAdded`, not `Runtime.consoleAPICalled`, so a
+console-API-only collector misses it entirely; this machine's Chrome was
+already running and a plain `chrome.exe --version` silently relayed to it
+instead of launching standalone.
+
+**Scope, deliberately kept lean:** a `sidebar_tree_structure` check was
+designed in full during planning and **not** added — the sidebar was the
+highest-churn part of the UI in both the 2026-09-07 and 2026-09-08 sessions
+above, so a check mirroring its exact shape would have needed editing in the
+same session that changed the feature, which is duplicated work rather than
+a regression guard. Also considered and dropped for "no bug has occurred
+yet": `config_invariants`, `dom_ids_unique`, `glyphs_load`,
+`no_cdn_requests`, `import_completeness`, `default_view`, `area_navigation`,
+`queryable_scope`. Add one — or a new one — the next time a bug in that area
+actually happens.
+
 ## Known issues / blockers
 
 - **DB password in `scripts/export_pgis_layers.bat` needs rotating.** The
@@ -427,14 +570,21 @@ above):
   browsable through the map. Confirmed as intended for this deployment
   (2026-09-07) — don't treat it as a leak, but don't assume the next dataset
   carries the same clearance.
-- **No automated regression test suite.** Verification has been manual +
-  one-off CDP scripting per session; nothing runs in CI. Worth building out
-  if this project grows past occasional AI-assisted sessions.
+- **No CI, though `tools/verify.py` closes the "nothing is committed" half
+  of this** (2026-09-08 — see "Build & test commands" and the dated entry
+  below). Four checks run on demand and gate a commit locally; nothing runs
+  them automatically on push. GitHub Pages deploys from `master` with no
+  Actions workflow, so adding CI is a separate decision, not yet made. The
+  four checks are also a regression *floor*, not full coverage of the app —
+  several candidate checks (sidebar structure, config invariants, CDN/glyph
+  loading, import completeness) were designed and deliberately left out; see
+  the dated entry for which and why.
 
 ## Next steps
 
-None requested. The sidebar/basemap polish pass is built and verified (see
-the 2026-09-08 entry above) — awaiting review or a specific next ask.
+None requested. The sidebar/basemap polish pass and the `tools/verify.py`
+harness are both built and verified (see the two 2026-09-08 entries above) —
+awaiting review or a specific next ask.
 
 Small things noticed and deliberately left alone:
 - `js/areas.js` is hand-written and will drift silently if the client's org
