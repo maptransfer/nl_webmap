@@ -64,7 +64,7 @@ html, body {
 .sidebar.is-collapsed .sidebar-body { display: none; }
 
 .sidebar-head { padding: 2px 0 8px; }
-.sidebar-head h1 { font-size: 17px; margin: 0 0 2px; }
+.sidebar-head h1 { font-size: 17px; margin: 0 0 2px; text-transform: uppercase; letter-spacing: .03em; }
 .sidebar-head .sub { margin: 0; color: var(--ui-muted); font-size: 12.5px; }
 
 .sidebar h2 {
