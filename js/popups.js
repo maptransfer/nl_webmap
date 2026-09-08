@@ -72,8 +72,8 @@ function weBody(p) {
   const labels = LABELS.we;
   const header = `
     <div class="popup-head">
-      <p class="title">${esc(txt(p.we_bezeichnung))}</p>
-      <p class="subtitle">WiE ${esc(txt(p.we_id_padded || pad4(p.we_id)))}</p>
+      <p class="title">WiE ${esc(txt(p.we_id_padded || pad4(p.we_id)))}</p>
+      <p class="subtitle">${esc(txt(p.we_bezeichnung))}</p>
     </div>`;
 
   const stat = (n, key) => `<div class="popup-stat"><span class="n">${esc(num(p[key] ?? 0))}</span><span class="lbl">${esc(n)}</span></div>`;
@@ -88,7 +88,7 @@ function weBody(p) {
 
   // Mirrors the flat top section of the QGIS "Übersicht" form (mv_we.qml)
   // above its "Hauseingänge / Mietobjekte" group box - always visible, no
-  // <details> wrapper. WiE / WiE Bezeichnung are the header's subtitle/title
+  // <details> wrapper. WiE / WiE Bezeichnung are the header's title/subtitle
   // above, so they aren't repeated here. Alt-Az is always rendered (– when
   // null), unlike the old conditional "Altdaten" group, since the QGIS form
   // shows it unconditionally too.

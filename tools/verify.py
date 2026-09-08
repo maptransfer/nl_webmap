@@ -763,8 +763,8 @@ def check_wie_popup_opens(page, a):
       const mod = await import(new URL('js/fields.js', document.baseURI).href);
       const p = {props_json};
       return {{
-        subtitle: `WiE ${{p.we_id_padded || mod.pad4(p.we_id)}}`,
-        title: mod.txt(p.we_bezeichnung),
+        title: `WiE ${{p.we_id_padded || mod.pad4(p.we_id)}}`,
+        subtitle: mod.txt(p.we_bezeichnung),
       }};
     """)
 
@@ -784,8 +784,8 @@ def check_wie_popup_opens(page, a):
     """)
     if not a.ok(popup is not None, "a MapLibre popup opened after the click"):
         return
-    a.eq(popup["title"], expected["title"], "popup title equals the clicked feature's own we_bezeichnung")
-    a.eq(popup["subtitle"], expected["subtitle"], "popup subtitle equals the clicked feature's own WiE id (padded)")
+    a.eq(popup["title"], expected["title"], "popup title equals the clicked feature's own WiE id (padded)")
+    a.eq(popup["subtitle"], expected["subtitle"], "popup subtitle equals the clicked feature's own we_bezeichnung")
     a.eq(popup["statCount"], 6, "popup shows all 6 stat tiles")
     a.ok(popup["groupCount"] >= 1, "popup shows at least one collapsible detail group")
 
