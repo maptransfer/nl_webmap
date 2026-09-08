@@ -1,7 +1,11 @@
 // Client org structure: ServiceCenter -> Standort -> Untergebiet.
 // Hand-written from servicecenter_structure.json (the client's full
 // portfolio) - NOT generated, unlike bookmarks.js. Standort names, spelling
-// and order follow that JSON verbatim.
+// and order within each ServiceCenter follow that JSON verbatim. The
+// ServiceCenter order itself deviates from the JSON: the two groups that
+// carry imported data (Ahrensburg, Lübeck) are listed first and adjacent, so
+// the sales demo doesn't bury the second live Standort (Ratzeburg) below an
+// entirely empty group.
 //
 // `town` on a Standort is the entire "is this imported" mechanism: present,
 // it names a TOWNS[].name entry in bookmarks.js and the sidebar resolves that
@@ -32,18 +36,6 @@ export const SERVICE_CENTERS = [
     ],
   },
   {
-    name: 'ServiceCenter Elmshorn',
-    standorte: [
-      { name: 'Neumünster' },
-      { name: 'Barmstedt' },
-      { name: 'Kaltenkirchen' },
-      { name: 'Tangstedt' },
-      { name: 'Norderstedt' },
-      { name: 'Elmshorn' },
-      { name: 'Hamburg' },
-    ],
-  },
-  {
     name: 'ServiceCenter Lübeck',
     standorte: [
       { name: 'Eutin' },
@@ -53,6 +45,18 @@ export const SERVICE_CENTERS = [
       { name: 'Lübeck und Travemünde' },
       { name: 'Groß Grönau' },
       { name: 'Ratzeburg', town: 'Ratzeburg' },
+    ],
+  },
+  {
+    name: 'ServiceCenter Elmshorn',
+    standorte: [
+      { name: 'Neumünster' },
+      { name: 'Barmstedt' },
+      { name: 'Kaltenkirchen' },
+      { name: 'Tangstedt' },
+      { name: 'Norderstedt' },
+      { name: 'Elmshorn' },
+      { name: 'Hamburg' },
     ],
   },
   {

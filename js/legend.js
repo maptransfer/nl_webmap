@@ -62,18 +62,16 @@ function metaLine(cfg) {
   return bits.join(' · ');
 }
 
-/** One <li> row: checkbox, title, legend expander. Queryable layers get an
- *  accent treatment plus a note, so the sidebar says which layer answers a
- *  click before the user tries one. */
+/** One <li> row: checkbox, title, legend expander. The queryable layer gets
+ *  an accent treatment (left border + tint via .layer-row--primary), which
+ *  together with the .section-hint sentence above the list already says
+ *  which layer answers a click - no separate pill needed on the row. */
 function rowHtml(cfg, patterns) {
   const swatches = cfg.legend.map((e) => `
     <div class="swatch-row">
       ${swatchHtml(e, patterns)}
       <span>${esc(e.label || '')}</span>
     </div>`).join('');
-  const note = cfg.queryable
-    ? '<p class="layer-note layer-note--primary">Klick für Details</p>'
-    : '';
   return `
     <li class="layer-row${cfg.queryable ? ' layer-row--primary' : ''}" data-key="${cfg.key}">
       <div class="layer-head">
@@ -85,7 +83,6 @@ function rowHtml(cfg, patterns) {
           </svg>
         </button>
       </div>
-      ${note}
       <div class="layer-legend" id="lg-${cfg.key}" hidden>
         ${swatches}
         <p class="meta">${esc(metaLine(cfg))}</p>

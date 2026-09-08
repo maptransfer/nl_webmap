@@ -53,7 +53,15 @@ const style = {
       attribution: '&copy; <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">OpenStreetMap</a>-Mitwirkende',
     },
   },
-  layers: [{ id: 'basemap-osm', type: 'raster', source: 'osm' }],
+  // The OSM raster sits at 50% opacity so it reads as context and the
+  // thematic overlays (hatched WiE, stippled buildings, yellow Flurstücke)
+  // carry the contrast. The white `background` layer underneath gives the
+  // faded raster something defined to blend toward - without it the result
+  // depends on the canvas clear colour and #map's (unset) CSS background.
+  layers: [
+    { id: 'bg', type: 'background', paint: { 'background-color': '#ffffff' } },
+    { id: 'basemap-osm', type: 'raster', source: 'osm', paint: { 'raster-opacity': 0.5 } },
+  ],
 };
 
 const map = new maplibregl.Map({
@@ -251,7 +259,12 @@ function openPopup(map, lngLat, hits, activeIndex) {
     importedWe += imported.reduce((sum, r) => sum + r.town.weCount, 0);
 
     const scId = `sc-${slug(sc.name)}`;
+    // scHasData: whether this group is interactive at all (chevron, body,
+    // pending chips shown inline). scIsDefault: whether it starts expanded -
+    // only the ServiceCenter holding DEFAULT_VIEW's town does, so the demo
+    // opens on exactly one open group even though two carry data.
     const scHasData = imported.length > 0;
+    const scIsDefault = imported.some((r) => r.standort.town === DEFAULT_VIEW.town);
 
     const standortRowsHtml = imported.map(({ standort, town }) => {
       const isDefaultStandort = standort.town === DEFAULT_VIEW.town;
@@ -289,16 +302,32 @@ function openPopup(map, lngLat, hits, activeIndex) {
         </ul>
       </div>` : '';
 
+    // A ServiceCenter with nothing imported yet is a single inert grey row -
+    // no chevron, no aria-controls/aria-expanded, no body, so it falls
+    // outside the [aria-controls] expand/collapse wiring below (same
+    // "absent attribute = inert" pattern the .chip rows already use for
+    // data-bounds). Its 7-14 Standort names aren't shown anywhere; the demo
+    // note's aggregate counts still account for them.
+    if (!scHasData) {
+      return `
+        <div class="sc-group">
+          <div class="sc-head sc-head--empty" title="Wird in einem späteren Schritt importiert">
+            <span class="sc-name">${esc(sc.name)}</span>
+            <span class="sc-cnt">${imported.length} von ${resolved.length}</span>
+          </div>
+        </div>`;
+    }
+
     return `
       <div class="sc-group">
-        <button type="button" class="sc-head" aria-expanded="${scHasData ? 'true' : 'false'}" aria-controls="${scId}">
+        <button type="button" class="sc-head" aria-expanded="${scIsDefault ? 'true' : 'false'}" aria-controls="${scId}">
           <svg class="chev" viewBox="0 0 24 24" width="14" height="14" aria-hidden="true">
             <path d="M9 6l6 6-6 6" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
           </svg>
           <span class="sc-name">${esc(sc.name)}</span>
           <span class="sc-cnt">${imported.length} von ${resolved.length}</span>
         </button>
-        <div class="sc-body" id="${scId}" ${scHasData ? '' : 'hidden'}>
+        <div class="sc-body" id="${scId}" ${scIsDefault ? '' : 'hidden'}>
           ${standortRowsHtml ? `<ul class="standort-list">${standortRowsHtml}</ul>` : ''}
           ${pendingHtml}
         </div>
@@ -310,11 +339,10 @@ function openPopup(map, lngLat, hits, activeIndex) {
 
   container.innerHTML = `
     ${demoNoteHtml}
-    ${groupsHtml}
-    <button type="button" class="view-all-btn" data-bounds='${JSON.stringify(COMBINED_BOUNDS)}'>Alle erfassten Standorte</button>`;
+    ${groupsHtml}`;
 
   // Zoom + active-state wiring: every element carrying data-bounds, at any
-  // depth (Standort row, Untergebiet row, the "Alle erfassten" button).
+  // depth (Standort row, Untergebiet row).
   container.querySelectorAll('[data-bounds]').forEach((el) => {
     el.addEventListener('click', (evt) => {
       evt.stopPropagation();

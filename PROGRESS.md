@@ -10,7 +10,8 @@ let's do \<next thing\>."*
 ## Status
 
 **v1 built and verified, deployed. Full ServiceCenter/Standort/Untergebiet
-nav tree added 2026-09-07** (see the dated entries under "Completed").
+nav tree added 2026-09-07, sidebar/basemap polish pass added 2026-09-08**
+(see the dated entries under "Completed").
 Repo: https://github.com/maptransfer/nl_webmap (public — transferred from
 personal account `TheGeoTheo` to the `maptransfer` org)
 **Live: https://maptransfer.github.io/nl_webmap/** — GitHub Pages, built
@@ -335,6 +336,79 @@ in the session scratchpad, not committed):
   auto-collapses under the existing 900px breakpoint (unrelated to this
   change, confirmed not broken).
 
+### 2026-09-08 — sidebar/basemap polish pass (post-review of the nav tree)
+
+**Why:** reviewing the 2026-09-07 nav tree ahead of the sales pitch surfaced
+five rough edges: the OSM basemap competed visually with the thematic fills;
+ServiceCenter Lübeck (the second imported group, holding Ratzeburg) sat below
+an entirely empty ServiceCenter and opened expanded alongside Ahrensburg;
+empty ServiceCenter groups looked exactly as interactive as the ones with
+data; the "Alle erfassten Standorte" button flew to `COMBINED_BOUNDS`, the
+same empty-countryside view the project's default-view decision exists to
+avoid; and the "Klick für Details" pill on the WiE row duplicated the
+`.section-hint` sentence already above the layer list.
+
+**What changed:**
+- `js/app.js` — the initial style's `layers` array gained an explicit white
+  `background` layer plus `paint: { 'raster-opacity': 0.5 }` on
+  `basemap-osm`, so the raster fades to a defined colour rather than an
+  unset canvas/`#map` background.
+- `js/areas.js` — `ServiceCenter Lübeck` moved from index 2 to index 1 (now
+  Ahrensburg → Lübeck → Elmshorn → Schwerin), so the two data-carrying groups
+  are adjacent. Standort order/spelling *within* each group is still
+  verbatim from the client JSON; only the group order deviates, noted in a
+  file comment.
+- `js/app.js` `initAreaPicker()` — `scHasData` (interactive at all) and
+  `scIsDefault` (starts expanded, `imported.some(r => r.standort.town ===
+  DEFAULT_VIEW.town)`) split apart, where before one flag drove both. Only
+  the ServiceCenter holding `DEFAULT_VIEW`'s town starts expanded now, so
+  Lübeck renders collapsed-but-expandable instead of open alongside
+  Ahrensburg.
+- `js/app.js` `initAreaPicker()` — a ServiceCenter with `scHasData === false`
+  (Elmshorn, Schwerin) now renders as a single inert `<div class="sc-head
+  sc-head--empty">` row: no `<button>`, no chevron, no `aria-controls`/
+  `aria-expanded`, no `sc-body` at all — same "missing attribute = inert"
+  pattern the `.chip` rows already used for `data-bounds`. Its Standort names
+  are not rendered anywhere (per explicit decision — chips stayed only for
+  the two *mixed* groups, Ahrensburg/Lübeck, where the demo note's "grau:
+  noch nicht importiert" still needs something on screen to point at).
+  `css/app.css` gained `.sc-head--empty` (muted colour, no hover, default
+  cursor); it inherits `.sc-head`'s flex layout otherwise.
+- `js/app.js`/`css/app.css` — the "Alle erfassten Standorte" button removed
+  (it flew to `COMBINED_BOUNDS`, landing on empty countryside — exactly the
+  view `resolveDefaultBounds()` exists to avoid as a *default*, so leaving it
+  reachable by a click was a trap in a live demo). `COMBINED_BOUNDS` stays
+  imported — `resolveDefaultBounds()` still uses it as the last-resort
+  fallback. `.view-all-btn` CSS rules deleted.
+- `js/legend.js`/`css/app.css` — the red "Klick für Details" pill
+  (`.layer-note`/`.layer-note--primary`) removed from `rowHtml()`. The WiE
+  row still gets `.layer-row--primary` (accent left border + tint), and
+  `.section-hint` in `index.html` still names the queryable layer above the
+  list — between the two, which layer answers a click is still visible
+  without the extra pill.
+
+**Verified** (headless Chrome over CDP, `serve_range.py`; driver script in
+the session scratchpad, not committed — pattern per "Build & test commands"
+above):
+- `map.getPaintProperty('basemap-osm', 'raster-opacity') === 0.5`; a `bg`
+  layer exists first in the style's layer stack, `basemap-osm` second, first
+  vector layer (`flurstuecke-fill`) third; screenshot shows a visibly faded
+  OSM basemap under the still-fully-saturated WiE hatch fill.
+- `.sc-name` order reads Ahrensburg, Lübeck, Elmshorn, Schwerin.
+- Exactly one `.sc-head[aria-expanded="true"]` (Ahrensburg); Lübeck's
+  `sc-body` starts `hidden: true`, flips to `false` after clicking its head.
+- `.sc-head--empty` count is 2, both `<div>` (not `<button>`), neither has
+  `aria-controls`; `.chip` count is 13 (7 Ahrensburg + 6 Lübeck, down from 34
+  before this change); clicking an empty head left `map.getCenter()`/
+  `getZoom()` byte-identical (confirmed inert).
+- `.view-all-btn` is absent from the DOM; remaining `[data-bounds]` count is
+  13 (2 Standort buttons + 11 Untergebiet buttons); clicking the Ratzeburg
+  Standort still flies to its bounds with exactly one `.is-active` element.
+- `.layer-note` is absent; `.layer-row--primary` is still present on the WiE
+  row; toggling `#cb-we` still flips `we-fill`'s `visibility`
+  (`visible`→`none`, restored after).
+- Console clean apart from the pre-existing favicon 404.
+
 ## Known issues / blockers
 
 - **DB password in `scripts/export_pgis_layers.bat` needs rotating.** The
@@ -359,9 +433,8 @@ in the session scratchpad, not committed):
 
 ## Next steps
 
-None requested. The full ServiceCenter/Standort/Untergebiet nav tree is built
-and verified (see the 2026-09-07 entry above) — awaiting review or a specific
-next ask.
+None requested. The sidebar/basemap polish pass is built and verified (see
+the 2026-09-08 entry above) — awaiting review or a specific next ask.
 
 Small things noticed and deliberately left alone:
 - `js/areas.js` is hand-written and will drift silently if the client's org
