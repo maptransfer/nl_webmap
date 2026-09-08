@@ -12,8 +12,9 @@ let's do \<next thing\>."*
 **v1 built and verified, deployed. Full ServiceCenter/Standort/Untergebiet
 nav tree added 2026-09-07, sidebar/basemap polish pass, a committed
 verification harness (`tools/verify.py`), a rebuilt WiE popup matching the
-client's QGIS form, and a presentation pass on that popup all added
-2026-09-08** (see the dated entries under "Completed").
+client's QGIS form, a presentation pass on that popup, and the sidebar's
+Standort rows boxed to match that popup group all added 2026-09-08** (see
+the dated entries under "Completed").
 Repo: https://github.com/maptransfer/nl_webmap (public — transferred from
 personal account `TheGeoTheo` to the `maptransfer` org)
 **Live: https://maptransfer.github.io/nl_webmap/** — GitHub Pages, built
@@ -763,6 +764,94 @@ scratchpad, not committed — 21 assertions, all passed):
 - Console/network clean, zero events (not even the usual favicon 404 on this
   run).
 
+### 2026-09-08 — Standort rows boxed like the popup's "Lage" group
+
+**Why:** in the sidebar's 3-level tree, the two imported Standorte
+(Ahrensburg, Ratzeburg) — the only two navigable areas in the whole demo —
+were a 12.5px row with a 2px accent left border. That put them visually
+level with the Untergebiet rows indented under them and the grey "noch nicht
+importiert" chips beside them, so the one part of the tree that carries data
+didn't announce itself. The WiE popup's "Lage" group had already solved the
+same problem one commit earlier (boxed, tinted head bar, rotating chevron);
+this applies that treatment to the Standort rows so the two places reuse one
+visual idea instead of inventing a second.
+
+**What changed:**
+- `js/app.js` `initAreaPicker()` — each imported Standort's `<li>` now wraps
+  its `.standort-head` **and** its `.ug-list` in one `<div class="standort-group">`,
+  so the Untergebiete sit *inside* the box rather than beside it. No change to
+  ids, `data-bounds`, `data-expand`, `aria-controls`/`aria-expanded` or any
+  event wiring — the delegated click handlers select on attributes, not on
+  DOM depth, so an added wrapper element is invisible to them.
+- `css/app.css` — `.standort-group` (new): `1px solid #f0cdc7`, `radius 6px`,
+  `overflow: hidden`. `.standort-head` took `background: #fae3df`. Both
+  values are **the same pair `.popup-group` uses**, deliberately — the tint
+  is a lighter shade of `.popup-head`'s `#f9d6d2`, so the sidebar's live
+  areas and the WiE popup carry the same identity colour.
+  `.standort-btn`: `font-weight: 600`, `color: #5a2b29` (the popup summary's
+  colour), padding `6px 9px`, and its `border-left: 2px solid var(--accent)`
+  / `border-radius` / `margin` dropped — the box now carries the emphasis the
+  thin border used to. `.standort-btn .cnt` recoloured `#8a5f5c` to stay
+  muted against pink. Hover on both `.standort-btn` and `.chev-wrap` moved
+  from `#f5f5f5` to `#f7d8d3` (grey-on-pink read as a rendering glitch);
+  `.chev-wrap` also gained `align-self: stretch` so its hover fills the bar's
+  full height, and lost its `border-radius`.
+- **`.standort-btn.is-active` is now a deeper tint (`#f2c9c2`) with no weight
+  change** — it used to be `#f5f5f5` + `font-weight: 600`, but the name is
+  bold in the bar unconditionally now, so weight was no longer available to
+  mark the active row.
+- **`.ug-list` lost its `margin: 2px 0 6px 22px`** and became
+  `padding: 4px 6px 5px` with `border-top: 1px solid #f0cdc7`. It's inside
+  the box now, so the box supplies the indent. **The separator sits on the
+  list, not on `.standort-head`, on purpose:** the list is toggled via
+  `hidden`, so when collapsed the line disappears with it — a border on the
+  head would leave a second line stacked directly on the box's own bottom
+  border, and `:has()` (reading a sibling button's `aria-expanded` from the
+  parent) would be the only other way to avoid that.
+- **The place name is not uppercased** the way `.popup-group > summary`'s
+  title is — "AHRENSBURG" reads as shouting rather than as a heading. Bold +
+  the tinted bar carry the emphasis instead.
+
+**Verified** (headless Chrome over CDP, `serve_range.py`; script in the
+session scratchpad, not committed — 48 assertions, all passed):
+- `tools\verify.bat` 4/4 green both before and after the edits.
+- Both boxes measured against `.popup-group`'s exact computed values:
+  border `rgb(240, 205, 199)` at `1px`, radius `6px`, `overflow: hidden`,
+  head background `rgb(250, 227, 223)`, name `font-weight: 600` in
+  `rgb(90, 43, 41)`, and `border-left-width: 0px` (old accent border gone).
+- Head bar and Untergebiet list each span the full box width (298px inside a
+  300px box); name + "105 WiE" occupy exactly one line box
+  (`getClientRects().length === 1`); the sidebar body has no horizontal
+  overflow (`scrollWidth === clientWidth === 338`).
+- Collapsed state: with Ratzeburg's list `hidden`, the list is not laid out
+  (`getClientRects().length === 0`) and the box's bottom edge sits within 1px
+  of the head bar's — i.e. one bottom line, not two. Expanding it brings the
+  `1px` separator back and the list to full box width.
+- Chevron: rotates to `matrix(0, 1, -1, 0, 0, 0)` (90°) on expand via the
+  pre-existing shared `[aria-expanded="true"] .chev` rule — no new rule
+  needed. **A read one frame after the click returns the identity matrix**
+  (`matrix(1, 0, 0, 1, 0, 0)`), mid-`.15s`-transition — that is *not*
+  `"none"` and silently passes a naive `!== 'none'` assertion; the check
+  waits past the transition and asserts the exact matrix instead.
+- Nothing else moved: 11 Untergebiet buttons + 2 Standort buttons = 13
+  `[data-bounds]`, 13 grey chips, exactly one `.is-active` at all times.
+  Clicking an Untergebiet flies to **that bookmark's own centre** (asserted
+  against its `data-bounds`, δ = 0.0000° in both axes); clicking a Standort
+  name flies to the town and paints its head bar `rgb(242, 201, 194)`.
+- Screenshots reviewed for the expanded state, the default first load, and a
+  collapsed box.
+- Console/network clean.
+
+**Two of the first run's five "failures" were bad assertions, not bugs** —
+worth recording because both are easy to re-hit when testing this sidebar:
+Ratzeburg lives inside ServiceCenter Lübeck, which starts **collapsed** by
+design, so every geometry read inside that `display: none` subtree returns
+`0` (and `getClientRects()` returns none, failing a no-wrap check); and the
+first Ratzeburg Untergebiet's bookmark is centred at lon ≈ 10.744, not at the
+town's ≈ 10.79, so asserting a hand-guessed coordinate fails against correct
+behaviour. Expand the group first, and compare against the element's own
+`data-bounds`.
+
 ## Known issues / blockers
 
 - **DB password in `scripts/export_pgis_layers.bat` needs rotating.** The
@@ -794,9 +883,9 @@ scratchpad, not committed — 21 assertions, all passed):
 ## Next steps
 
 None requested. The sidebar/basemap polish pass, the `tools/verify.py`
-harness, the QGIS-form-matching WiE popup and its presentation pass are all
-built and verified (see the four 2026-09-08 entries above) — awaiting review
-or a specific next ask.
+harness, the QGIS-form-matching WiE popup, its presentation pass and the
+boxed Standort rows in the sidebar are all built and verified (see the five
+2026-09-08 entries above) — awaiting review or a specific next ask.
 
 Small things noticed and deliberately left alone:
 - `js/areas.js` is hand-written and will drift silently if the client's org

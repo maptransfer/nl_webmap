@@ -139,10 +139,26 @@ details[open] > summary .chev { transform: rotate(90deg); }
 
 .standort-list { list-style: none; margin: 0; padding: 0; }
 
+/* An imported Standort (Ahrensburg, Ratzeburg) gets the same treatment as
+   the WiE popup's collapsible "Lage" group: a box with a tinted head bar and
+   a rotating chevron, its Untergebiete nested inside. Before this, the row
+   was a thin accent-bordered line that read like just another entry among
+   the Untergebiete under it and the grey chips beside it. Same #f0cdc7 /
+   #fae3df pair as .popup-group, so the two live areas carry the WiE layer's
+   identity colour. The place name is *not* uppercased the way the popup's
+   group title is - "AHRENSBURG" reads as shouting, not as a heading. */
+.standort-group {
+  border: 1px solid #f0cdc7;
+  border-radius: 6px;
+  overflow: hidden;
+  margin: 5px 0 7px;
+  background: var(--ui-bg);
+}
 .standort-head {
   display: flex;
   align-items: center;
   gap: 4px;
+  background: #fae3df;
 }
 .standort-btn {
   flex: 1;
@@ -150,34 +166,43 @@ details[open] > summary .chev { transform: rotate(90deg); }
   text-align: left;
   border: 0;
   background: none;
-  padding: 4px 6px;
-  margin: 1px 0;
-  border-radius: 4px;
+  padding: 6px 9px;
   font: inherit;
   font-size: 12.5px;
-  color: var(--ui-text);
+  font-weight: 600;
+  color: #5a2b29; /* same as .popup-group > summary */
   cursor: pointer;
-  border-left: 2px solid var(--accent);
 }
-.standort-btn:hover { background: #f5f5f5; }
-.standort-btn .cnt { color: var(--ui-muted); font-size: 11.5px; }
-.standort-btn.is-active { background: #f5f5f5; font-weight: 600; }
+.standort-btn:hover { background: #f7d8d3; }
+.standort-btn .cnt { color: #8a5f5c; font-size: 11.5px; font-weight: 400; }
+/* Active state is a deeper shade of the same tint - the name is already bold
+   in the bar, so weight is no longer available to mark it. */
+.standort-btn.is-active { background: #f2c9c2; }
 
 .chev-wrap {
   flex: 0 0 auto;
   border: 0;
   background: none;
-  padding: 4px;
+  align-self: stretch;
+  padding: 4px 7px;
   cursor: pointer;
-  border-radius: 4px;
-  color: var(--ui-muted);
+  color: #8a5f5c;
   display: flex;
   align-items: center;
 }
-.chev-wrap:hover { background: #f5f5f5; }
+.chev-wrap:hover { background: #f7d8d3; }
 .chev-wrap .chev { width: 14px; height: 14px; transition: transform .15s ease; }
 
-.ug-list { list-style: none; margin: 2px 0 6px 22px; padding: 0; }
+/* Inside the Standort box. The separator lives on the list rather than on
+   .standort-head so it disappears with the list when collapsed (the panel is
+   toggled via `hidden`) - no double line above the box's own bottom border,
+   and no :has() needed to read a sibling button's aria-expanded. */
+.ug-list {
+  list-style: none;
+  margin: 0;
+  padding: 4px 6px 5px;
+  border-top: 1px solid #f0cdc7;
+}
 .ug-list button {
   display: block;
   width: 100%;

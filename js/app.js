@@ -288,13 +288,19 @@ function openPopup(map, lngLat, hits, activeIndex) {
           }).join('')}
         </ul>` : '';
 
+      // An imported Standort is boxed with a tinted head bar - the same
+      // treatment as the WiE popup's collapsible "Lage" group - so the two
+      // live areas read as objects rather than as one more list row among
+      // the Untergebiete below them and the grey chips beside them.
       return `
         <li>
-          <div class="standort-head">
-            <button type="button" class="standort-btn" data-bounds='${JSON.stringify(town.bounds)}' ${subAreas.length ? `data-expand="${ugListId}"` : ''}>
-              ${esc(standort.name)} <span class="cnt">${town.weCount} WiE</span>
-            </button>${chevHtml}
-          </div>${ugListHtml}
+          <div class="standort-group">
+            <div class="standort-head">
+              <button type="button" class="standort-btn" data-bounds='${JSON.stringify(town.bounds)}' ${subAreas.length ? `data-expand="${ugListId}"` : ''}>
+                ${esc(standort.name)} <span class="cnt">${town.weCount} WiE</span>
+              </button>${chevHtml}
+            </div>${ugListHtml}
+          </div>
         </li>`;
     }).join('');
 
