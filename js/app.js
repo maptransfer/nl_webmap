@@ -344,7 +344,7 @@ function openPopup(map, lngLat, hits, activeIndex) {
       </div>`;
   }).join('');
 
-  const demoNoteHtml = `<p class="views-demo-note">Demo: ${importedStandorte} von ${totalStandorte} Standorten erfasst
+  const demoNoteHtml = `<p class="views-demo-note">Demo-App: ${importedStandorte} von ${totalStandorte} Standorten erfasst
     (${importedWe} Wirtschaftseinheiten). Grau: noch nicht importiert.</p>`;
 
   container.innerHTML = `
