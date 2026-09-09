@@ -382,14 +382,20 @@ details[open] > summary .chev { transform: rotate(90deg); }
   bottom: auto;
   transform: translate(-50%, -50%);
   flex-direction: column;
-  align-items: flex-start;
+  align-items: center;
+  text-align: center;
   gap: 8px;
   max-width: min(520px, 92vw);
   padding: 16px 18px;
   z-index: 25; /* above the sidebar (10), below the error banner (30) */
 }
 .toast--intro h2 { margin: 0; font-size: 15px; text-transform: uppercase; letter-spacing: .03em; }
-.toast--intro button { align-self: flex-end; }
+/* The two body paragraphs lead with their label as a heading line (see
+   index.html - <strong> + <br>, colon dropped per client request) rather
+   than an inline "Label: text" run. A small top margin gives the label
+   room to read as a heading instead of crowding the paragraph above it. */
+.toast--intro strong { display: inline-block; margin-top: 2px; }
+.toast--intro button { align-self: center; }
 
 /* ---------- popups ---------- */
 
