@@ -17,7 +17,11 @@ Standort rows boxed to match that popup group, and a small four-item
 wording/styling polish pass (popup header order, sidebar title casing, demo
 note and tooltip wording) all added 2026-09-08. Sidebar layer list
 simplified to a flat, non-expandable list with two layers merged and two
-renamed, added 2026-09-09** (see the dated entries under "Completed").
+renamed, added 2026-09-09. A same-day four-item client polish pass
+followed: a WiE popup label rewording, Grundbuchblätter labels moved onto
+the polygon boundary, the "click for details" hint moved into the WiE
+layer row, and the first-load toast replaced with a centered intro card
+shown on every load** (see the dated entries under "Completed").
 Repo: https://github.com/maptransfer/nl_webmap (public — transferred from
 personal account `TheGeoTheo` to the `maptransfer` org)
 **Live: https://maptransfer.github.io/nl_webmap/** — GitHub Pages, built
@@ -1003,6 +1007,103 @@ pattern):
   5236", correctly drawn above the WiE hatch and building fills).
 - Console/network clean apart from the pre-existing favicon 404.
 
+### 2026-09-09 — four-item client polish pass (label wording, label placement, sidebar hint, intro card)
+
+**Why:** a review pass with the client surfaced four more small, independent
+requests on top of the same-day layer-list simplification above: a popup
+label rewording, moving the Grundbuchblätter sheet-number labels off the
+polygon centre and onto its boundary, moving the "click for details" hint
+into the layer row it actually describes, and replacing the old
+once-per-browser bottom toast with a centered first-load card that frames
+the whole site as a demo. Four independent commits, each verified and run
+before the next.
+
+**What changed:**
+
+1. **`Baujahre` → `Baujahr(e)`** (`js/fields.js`) — `LABELS.we.baujahre`
+   relabeled per the client's explicit wording request. This is a
+   deliberate deviation from the file's "QML aliases are verbatim, don't
+   improve them" rule (the header comment now says so on this one entry) —
+   otherwise a future session comparing against `mv_we.qml`'s `<aliases>`
+   block would "fix" it back. Also brings it in line with
+   `LABELS.grundbuch_ansicht.baujahre`, already `'Baujahr(e)'`.
+2. **Grundbuchblätter labels moved onto the boundary** (`js/layers.js`,
+   the `grundbuch_ansicht` entry's `label` part) — added
+   `'symbol-placement': 'line'` (runs the label along the polygon's own
+   rings instead of at its centroid; `text-rotation-alignment` defaults to
+   `'map'` under line placement, which is what makes it follow the edge),
+   `'symbol-spacing': 400` (repeats every ~400px of boundary instead of the
+   250px default), and `'text-offset': [0, -0.8]` (nudges it off the line
+   towards the polygon's inside). Client request. A useful side effect,
+   not something engineered for: labels no longer depend on their
+   polygon's centroid falling inside the current viewport, so more of them
+   are now visible in views where they previously weren't (e.g. the
+   default Schäferweg view, which rendered zero under the old centroid
+   placement per the entry above — now shows some).
+3. **"Click for details" hint moved into the WiE layer row**
+   (`js/layers.js`, `js/legend.js`, `index.html`, `css/app.css`) — the
+   sentence that used to sit in a standalone `<p class="section-hint">`
+   above the whole `#layer-list` now renders as a second muted line inside
+   the WiE row alone, via a new generic `hint` field any `LAYERS` entry
+   can carry (today only `we` does). `rowHtml()` in `js/legend.js` emits
+   `<p class="layer-hint">` after the row's `<label>` when `cfg.hint` is
+   set. `.section-hint`'s CSS rule is deleted with the markup it served,
+   matching the pattern already used earlier the same day when
+   `.layer-note` was dropped. Text unchanged verbatim.
+4. **First-load intro card, shown on every load** (`index.html`,
+   `css/app.css`, `js/app.js`) — the old bottom toast (a two-town/40km
+   explanation, dismissed once per browser via a `localStorage` flag) is
+   replaced by a card centered over the map: a heading ("Demo-App: NEUE
+   LÜBECKER") plus three paragraphs (what the site is, how to use it, the
+   demo's data scope) — content supplied by the client, typos and
+   run-on sentences cleaned up. `initHintToast()` → `initIntroModal()` in
+   `js/app.js` drops the `localStorage` read/write entirely and shows the
+   card unconditionally on every load — deliberate, since a sales-demo
+   framing message should reappear every time someone opens the site while
+   presenting, not just the first time in a given browser. The element
+   **keeps its `#hint-toast`/`#hint-dismiss` ids** so `tools/verify.py`'s
+   `Page.goto()` → `dismiss_toast()` (which looks both up by id on every
+   check, since the card would otherwise overlay the map centre that
+   `wie_popup_opens` clicks) needed no changes. The new `.toast--intro` CSS
+   modifier deliberately does **not** redeclare `display` — it reuses
+   `.toast`'s base rule and the paired `.toast[hidden] { display: none }`
+   override that exists specifically because of the v1 CSS-specificity bug
+   (see that dated entry, bug #3) — a new class declaring its own
+   `display` would have risked reopening exactly that.
+
+**Verified** (headless Chrome over CDP, `serve_range.py`; four scratch
+scripts per item, each reusing `tools/verify.py`'s `Chrome`/`CDP`/`Page`
+classes — not committed, per the established pattern):
+- `tools\verify.bat` 4/4 green before any edit, after each of the four
+  commits, and at the final state — including `dismiss_toast()` still
+  finding both ids after the markup swap in item 4.
+- **Label wording**: clicked a real WiE polygon (`we_id 228`); popup shows
+  a row labeled "Baujahr(e)" and none labeled "Baujahre"; the label
+  doesn't wrap (1 client rect); popup width unchanged at 332px (the longer
+  "ALKIS Nutzungsbezeichnungen" label still sets the column width).
+- **Label placement**: flew to Ahrensburg → Gartenholz/Syltring;
+  `map.getLayoutProperty()` confirmed `symbol-placement`/`symbol-spacing`/
+  `text-offset` match; 4 labels still render there (`Blatt: 7876/7497/
+  7158/5236` — same feature set as before, so the placement change hides
+  nothing); a screenshot showed each label running along its polygon's
+  boundary, readable and non-mirrored, sitting inside the yellow
+  Flurstück fill, with no stray labels along tile-clip edges.
+- **Sidebar hint**: exactly one `.layer-hint` in `#layer-list`, text
+  matches the old `.section-hint` verbatim, `.section-hint` is gone from
+  the whole document, the hint sits inside `.layer-row--primary` (the WiE
+  row) on its own line below the `<label>`, and `#sidebar-body` still has
+  no horizontal overflow (`scrollWidth === clientWidth === 338`).
+  Screenshot reviewed.
+- **Intro card**: on a fresh load, `hidden === false`, computed
+  `display: flex`, heading text and all 3 paragraphs present, card centre
+  within 3px of the viewport centre at 1440×900, no viewport overflow at
+  800px wide. Clicking `#hint-dismiss` sets computed `display: none` (not
+  just `.hidden`, the exact distinction the v1 bug fix cares about).
+  Reloading via a raw `Page.navigate` that bypasses the harness's own
+  `localStorage.clear()` showed the card visible again — confirming
+  "every load", the one behavior a localStorage-clearing test harness
+  would otherwise hide. Screenshot reviewed.
+
 ## Known issues / blockers
 
 - **DB password in `scripts/export_pgis_layers.bat` needs rotating.** The
@@ -1035,9 +1136,19 @@ pattern):
 
 None requested. The sidebar/basemap polish pass, the `tools/verify.py`
 harness, the QGIS-form-matching WiE popup, its presentation pass, the boxed
-Standort rows in the sidebar (2026-09-08), and the flattened/merged/renamed
-layer list (2026-09-09) are all built and verified — awaiting review or a
-specific next ask.
+Standort rows in the sidebar (2026-09-08), the flattened/merged/renamed
+layer list, and the four-item client polish pass (label wording, boundary
+label placement, sidebar hint relocation, first-load intro card) — all
+2026-09-09 — are all built and verified. Awaiting review or a specific
+next ask.
+
+One small optional follow-up noticed while moving the layer hint (not
+done, since the plan called for moving the text verbatim): now that
+"Details öffnen sich per Klick auf eine Wirtschaftseinheit." sits inside
+the WiE row itself rather than above the whole list, "…auf eine
+Wirtschaftseinheit" is arguably redundant with the row's own label right
+above it — could shorten to "Klick auf eine Fläche öffnet Details." if
+wanted. A one-line edit to the `hint` string in `js/layers.js`.
 
 Small things noticed and deliberately left alone:
 - `js/areas.js` is hand-written and will drift silently if the client's org
