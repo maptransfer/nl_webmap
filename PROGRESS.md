@@ -17,11 +17,15 @@ Standort rows boxed to match that popup group, and a small four-item
 wording/styling polish pass (popup header order, sidebar title casing, demo
 note and tooltip wording) all added 2026-09-08. Sidebar layer list
 simplified to a flat, non-expandable list with two layers merged and two
-renamed, added 2026-09-09. A same-day four-item client polish pass
-followed: a WiE popup label rewording, Grundbuchblätter labels moved onto
+renamed, added 2026-09-09, followed the same day by a four-item client
+polish pass (WiE popup label rewording, Grundbuchblätter labels moved onto
 the polygon boundary, the "click for details" hint moved into the WiE
 layer row, and the first-load toast replaced with a centered intro card
-shown on every load** (see the dated entries under "Completed").
+shown on every load). A third same-day pass added zoom-dependent
+generalization (Untergebiet/Town markers replace the five thematic layers
+below a new `DETAIL_MINZOOM`, `tools/verify.py` grew a fifth check), a
+Hausnummern label-size fix, and centered/reworded the intro card** (see the
+dated entries under "Completed").
 Repo: https://github.com/maptransfer/nl_webmap (public — transferred from
 personal account `TheGeoTheo` to the `maptransfer` org)
 **Live: https://maptransfer.github.io/nl_webmap/** — GitHub Pages, built
@@ -80,6 +84,10 @@ it.
   else. **These four are a regression floor, not full coverage** — a new
   feature still needs its own verification, and a green *live* run verifies
   the last pushed commit, not necessarily the working tree.
+  (A fifth check, `overview_markers`, was added 2026-09-09 for the
+  zoom-out generalization feature — see that dated entry below; the
+  "four checks" framing above is a historical snapshot of the reasoning
+  behind the original set, not the current count.)
   Expectations are derived at runtime by dynamically importing the app's own
   `js/layers.js` / `js/bookmarks.js` / `js/fields.js` inside the browser
   (confirmed viable on both `localhost` and the live Pages origin — neither
@@ -1104,8 +1112,203 @@ classes — not committed, per the established pattern):
   "every load", the one behavior a localStorage-clearing test harness
   would otherwise hide. Screenshot reviewed.
 
+### 2026-09-09 — zoom-out generalization, intro card centering, Hausnummern scaling
+
+**Why:** a further client review pass surfaced three more items on top of
+the two same-day passes above. Independent, three commits:
+
+1. **Intro card reworded** (`3e463ef`) — the first-load card
+   (`initIntroModal()`/`#hint-toast`, added earlier the same day) read
+   left-aligned with two bold labels (`Funktionalität:`,
+   `Demo-Datenstand:`) inline before their body text. `index.html`: both
+   paragraphs became `<strong>Label</strong><br>body…` (colon dropped, body
+   text starts on the next line); the card's own heading
+   `Demo-App: NEUE LÜBECKER` → `Demo-App NEUE LÜBECKER` (colon dropped
+   too, user's explicit choice among three options offered).
+   `css/app.css`'s `.toast--intro` gained `text-align: center` and
+   `align-items`/button `align-self` switched from `flex-start`/`flex-end`
+   to `center`. Deliberately did **not** touch `.toast`'s `display` or the
+   `.toast[hidden]` override — that pair exists specifically to defeat the
+   v1 CSS-specificity bug (see the v1 verification entry, bug #3).
+2. **Zoom-dependent generalization** (`a1b4518`) — the substantial one.
+   Zoomed out to a full Standort (e.g. Ahrensburg, fitted zoom ≈12-13.5
+   depending on window size), the five thematic layers rendered as an
+   illegible 1-3px speckle. Below a new `DETAIL_MINZOOM` (14.0,
+   `js/layers.js`) all five now hide, replaced by clickable markers — one
+   per Untergebiet at Standort zoom, one per Town further out — that fly
+   to the matching area on click, exactly the client's ask ("show a
+   clickable symbol for the Untergebiete instead of tiny visualization of
+   all layers").
+   - **A real correction caught before it shipped, worth recording:** the
+     first pass at the zoom-band thresholds used
+     `px = metres · 2^z / 92_690` (the 256px-tile slippy-map convention,
+     already the derivation this file's own header comment uses for the
+     `W_*` width ramps). That formula is wrong for MapLibre, which zooms on
+     a **512px-tile** world — confirmed directly in
+     `vendor/maplibre-gl.js` (`tileSize=512`, `worldSize = tileSize *
+     scale`) rather than assumed. Every zoom number computed with the old
+     formula was off by a full zoom level (e.g. Ahrensburg's fitted zoom is
+     ≈12.78 at 1440×900, not ≈13.78). Caught by re-deriving by hand and
+     cross-checking against this file's own previously-*measured* Schäferweg
+     opening zoom (≈16.1) before writing any threshold into code, then
+     confirmed again live via `tools/verify.py`'s classes across seven
+     window sizes (800×500 to 2560×1440) — see `js/overview.js`'s header
+     comment for the resulting numbers. **This pre-existing bug is NOT
+     fixed** — the `W_026M`/`W_05M`/`W_15M` line-width ramps and the
+     `grundbuch_ansicht` label's `minzoom: 16` comment (derived the same
+     wrong way) still use the 256px convention, meaning every QGIS-derived
+     line width on the map currently renders at roughly **half** its
+     intended screen width. Out of scope for this pass (not asked for,
+     and every line on the live map has already been visually
+     eyeballed/accepted at its current width in earlier sessions) — flagged
+     under "Known issues" below for a future session to weigh.
+   - **New `js/overview.js`** — GeoJSON source + circle/label style layers
+     for the two marker kinds, deliberately **not** folded into `LAYERS`
+     (no legend row, checkbox, or popup — folding it in would need special
+     cases in `buildStyleLayers()`/`partIds()`/`hitLayerIds()`/
+     `renderLegend()`, which all assume "one PMTiles layer, one legend
+     row, one checkbox"). Opacity ramps crossfade at both band edges
+     instead of a hard pop.
+   - **Marker clicks reuse the sidebar, they don't reimplement it**: every
+     Standort/Untergebiet `<button>` in `js/app.js`'s `initAreaPicker()`
+     now carries a stable id (`navTownId()`/`navUgId()`, new in
+     `js/util.js`), and a marker click just calls that button's own
+     `.click()`.
+   - **`js/layers.js`'s `buildStyleLayers()`** now floors every emitted
+     layer's `minzoom` at `DETAIL_MINZOOM` (`Math.max` against the part's
+     own, so `grundbuch_ansicht`'s label keeps its higher 16) and applies
+     it to the `hl-*` highlight layers too.
+   - **A real bug found and closed during verification, not assumed**:
+     MapLibre only re-evaluates a GeoJSON-backed layer's minzoom/maxzoom
+     when it internally rebuilds that source's tile for the viewport —
+     roughly at integer-zoom boundaries, not every frame. A scratch CDP
+     sweep showed a town marker still returned by
+     `queryRenderedFeatures` up to z≈11.9 despite a declared `maxzoom` of
+     11.3 (invisible the whole time — its `circle-opacity` paint
+     expression, genuinely evaluated per-frame, had already clamped to 0 —
+     but still hit-testable). `js/overview.js`'s new `queryOverviewHits()`
+     adds an explicit continuous-zoom filter on top of the raw query, used
+     by the marker click/hover handlers and folded into `js/app.js`'s
+     `wireHover()`/`wireClicks()` (the single place that already decides
+     cursor/popup behaviour for the `we` layer), so a ghost click can't
+     happen at any threshold, present or future.
+   - **`initAreaPicker()` gained `reveal(el)`**: walks up an element's
+     hidden ancestor panels (`sc-body`, `ug-list`) and opens them. Needed
+     because a sidebar row can now be activated by something other than a
+     click that started inside its own collapsed tree — a marker click on
+     a Ratzeburg Untergebiet must expand both the collapsed ServiceCenter
+     Lübeck panel *and* that Untergebiet's own list, or `.is-active` would
+     land on a row nobody can see. The pre-existing `data-expand`
+     mechanism (opening a *descendant* list from a Standort click) is
+     unchanged and still separate — `reveal()` only handles ancestors.
+   - **`index.html`/`css/app.css`**: new `#zoom-note` (shown while the
+     checkboxes are live but visibly do nothing, paired with
+     `.layer-list.is-dimmed`). Deliberately declares no `display` of its
+     own — the same CSS-specificity trap that broke the v1 toast's
+     `hidden` attribute.
+   - **`tools/verify.py`**: `map_loads` now also imports `js/overview.js`
+     and compares `{id, minzoom}` pairs (not just ids), so an inverted
+     `Math.max` or a part silently losing its minzoom would be caught, not
+     just a missing layer id. New fifth check `overview_markers`.
+3. **Hausnummern scale down when zooming out** (`6d9b0b1`) — the
+   `adressen` label ramp clamped flat at its first stop (z15 → 10px), so
+   house numbers stayed a fixed size while the polygons around them kept
+   shrinking — proportionally huge and cluttered zoomed out. Extended both
+   the `text-size` and `text-halo-width` ramps downward (a `14→7`/`15.5→9`
+   and a `14→0.7` low end respectively); the z18/z20 stops (the
+   close-zoom look) are unchanged. This part's `minzoom` now comes only
+   from commit 2's blanket floor — a comment says so explicitly, since the
+   QML has no scale limit (`scaleVisibility=0`) and a future session
+   comparing against it should not "restore" an unlimited range.
+
+**Dropped from this pass, investigated and explicitly declined by the
+user, not merely deferred:** moving the Grundbuchblätter "Blatt: …"
+labels from the polygon boundary to fully inside the polygon. The
+underlying MapLibre mechanism was traced directly in
+`vendor/maplibre-gl.js`: `text-offset` on a `symbol-placement: 'line'`
+label is applied in the label's own frame, and `text-keep-upright`
+(default `true`) flips that frame — and therefore the offset's geometric
+side — whenever a label would otherwise render upside-down. No style
+expression or feature property exposes which labels flipped, so a single
+static `text-offset` cannot mean "inside" on every edge; the only real
+fixes were point placement (guaranteed inside, but one label per polygon,
+vanishing when its anchor is off-view — the exact problem boundary
+placement was introduced to solve), a zero offset with a halo (never
+outside, never fully inside either), or `text-keep-upright: false`
+(guaranteed inside, ~half the labels render mirrored). Presented as three
+concrete previews; user's decision was to leave the labels exactly as
+they are.
+
+**Verified** (headless Chrome over CDP, `serve_range.py`; several scratch
+scripts per item, reusing `tools/verify.py`'s `Chrome`/`CDP`/`Page`
+classes — not committed, per the established pattern):
+- `tools\verify.bat`: 4/4 green before any edit (baseline), 4/4 again
+  after the intro-card commit, 5/5 after the generalization commit (new
+  `overview_markers` check) and again after the Hausnummern commit — run
+  both with the marker-band ramp changes present AND with them
+  temporarily isolated out (to keep the two `js/layers.js` regions in
+  separate commits), confirming both halves are independently green.
+- **Intro card**: on a fresh load, heading text is `Demo-App NEUE
+  LÜBECKER` (no colon), no `Funktionalität:`/`Demo-Datenstand:` anywhere
+  in the card's text; each `<strong>` label's bounding rect sits strictly
+  above its paragraph's remaining text (`Range.getBoundingClientRect`
+  split at the `<br>`); computed `text-align: center`; the dismiss button
+  sits horizontally centered; dismissing still flips computed `display` to
+  `none` (not just the `hidden` attribute). Screenshot reviewed at
+  1440×900.
+- **Zoom bands**: a zoom-walk sweep over Ahrensburg (`map.setZoom()`
+  through 10.0→17.0, waiting for `idle` at each step, not just a single
+  animation frame — an earlier single-`requestAnimationFrame` version of
+  this sweep gave misleadingly early cutoffs) confirmed zero detail-layer
+  features below z14.0 and hundreds at z14.0 exactly; 6-7 Untergebiet
+  markers throughout the whole `[11.0, 13.8]` range tested; the town
+  marker alone below `~11.0-11.3`. The ghost-hit gap was measured directly
+  before and after the `queryOverviewHits()` fix (queryRenderedFeatures
+  still returning a town marker at z11.9 before; correctly empty at
+  z≥11.3 after).
+- **Sidebar reuse**: a real CDP click (not a JS-synthesized event) on a
+  live Ahrensburg Untergebiet marker flew to that sub-area's own
+  `data-bounds`, left exactly one correct `.is-active`, opened no popup,
+  and left its own `ug-list` visible. Separately, clicking a Ratzeburg
+  Untergebiet marker **while ServiceCenter Lübeck's panel was still
+  collapsed** expanded both that panel and the sub-area's own `ug-list`,
+  and the clicked button was confirmed genuinely visible
+  (`offsetParent !== null`), not just marked active while hidden — the
+  scenario `reveal()` exists for.
+- **Sidebar affordance**: `#zoom-note` hidden/`#layer-list.is-dimmed`
+  before any click at Standort zoom, both flipped back off after flying
+  into a sub-area (now above `DETAIL_MINZOOM`).
+- Screenshots reviewed: the Ahrensburg Standort view (7 readable,
+  non-colliding Untergebiet markers with WiE-count-free labels), the
+  Ratzeburg Standort view (4 markers, reached without going through the
+  sidebar first), z10.2 (single Town marker + WiE count), and z14.2
+  (detail layers on, zero markers, sidebar affordance gone, no visible
+  double-rendering at the handover).
+- **Hausnummern**: ramp/minzoom read back via
+  `map.getLayoutProperty`/`getPaintProperty` match exactly. Screenshots at
+  z15.5/16.5/18 over Gartenholz/Syltring (a dense address cluster): small
+  and legible zoomed out, scaling up smoothly, and byte-for-byte unchanged
+  at z18 from before this pass.
+
 ## Known issues / blockers
 
+- **`W_026M`/`W_05M`/`W_15M` line-width ramps (and the `grundbuch_ansicht`
+  label's `minzoom: 16` comment) use the wrong tile-size convention.**
+  Found incidentally while deriving the 2026-09-09 zoom-out generalization
+  thresholds above, not while looking for it: `js/layers.js`'s header
+  comment derives `px = metres · 2^z / 92_690`, which is the 256px-tile
+  slippy-map convention. MapLibre actually zooms on a 512px-tile world
+  (confirmed in `vendor/maplibre-gl.js`: `tileSize=512`,
+  `worldSize = tileSize * scale`), so every width computed this way
+  renders at roughly **half** its intended screen width, and the
+  `grundbuch_ansicht` label's "QGIS scaleMax=2600 → z≥16.96" derivation is
+  really z≥15.96. **Not fixed** — out of scope for the pass that found it,
+  and every line on the live map has already been visually
+  eyeballed/accepted at its current (halved) width in earlier sessions,
+  so "fixing" it now would be a visible style change nobody asked for.
+  The fix, if wanted later, is dividing the `92_690` constant by 2 (or
+  equivalently doubling every ramp's px values) in `js/layers.js`,
+  verified against real QGIS-exported screenshots before trusting it.
 - **DB password in `scripts/export_pgis_layers.bat` needs rotating.** The
   file is gitignored (never committed), but it's sat in plaintext on disk —
   treat it as exposed. Not something I can do; needs the user to rotate it
@@ -1137,10 +1340,27 @@ classes — not committed, per the established pattern):
 None requested. The sidebar/basemap polish pass, the `tools/verify.py`
 harness, the QGIS-form-matching WiE popup, its presentation pass, the boxed
 Standort rows in the sidebar (2026-09-08), the flattened/merged/renamed
-layer list, and the four-item client polish pass (label wording, boundary
-label placement, sidebar hint relocation, first-load intro card) — all
-2026-09-09 — are all built and verified. Awaiting review or a specific
-next ask.
+layer list, the four-item client polish pass (label wording, boundary
+label placement, sidebar hint relocation, first-load intro card), and a
+third same-day pass (intro card centering/wording, zoom-dependent
+generalization with Untergebiet/Town markers, Hausnummern label-size fix)
+— all 2026-09-09 — are all built and verified. Awaiting review or a
+specific next ask.
+
+One deliberately-declined item from the third pass, not a TODO: moving the
+Grundbuchblätter boundary labels fully inside their polygons was
+investigated and explicitly turned down by the user after seeing the
+three real options (see that dated entry) — don't re-attempt this without
+a fresh ask, and don't re-derive the MapLibre mechanism from scratch if
+one comes; it's written up there.
+
+A candidate follow-up noticed while building the zoom-out generalization,
+not done because it wasn't asked for: an optional Untergebiet extent
+rectangle (a faint boxed outline behind each marker, showing the actual
+sub-area bounds rather than just a point) was designed during planning and
+deliberately left out of `js/overview.js` to keep the first pass's diff
+small — the marker geometry/fade logic would need a `ug-box`/`ug-box-line`
+layer pair, mirroring the existing dot/label pattern.
 
 One small optional follow-up noticed while moving the layer hint (not
 done, since the plan called for moving the text verbatim): now that
