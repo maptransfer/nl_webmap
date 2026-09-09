@@ -251,27 +251,36 @@ details[open] > summary .chev { transform: rotate(90deg); }
 
 /* ---------- layer list ---------- */
 
-/* One muted sentence under the "Ebenen" heading, naming the queryable layer. */
-.section-hint {
-  margin: 0 0 8px;
-  color: var(--ui-muted);
-  font-size: 11.5px;
-  line-height: 1.4;
-}
-
 .layer-list { list-style: none; margin: 0; padding: 0; }
 
 /* 2026-09-09: flat list, no groups, no expandable detail - one row is
-   checkbox + symbol + name. Only the queryable layer still stands out. */
+   checkbox + symbol + name (+ an optional .layer-hint line, wrapped onto
+   its own row via flex-wrap below). Only the queryable layer still stands
+   out. */
 .layer-row + .layer-row { border-top: 1px solid #f0f0f0; }
 .layer-row {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
   gap: 8px;
   padding: 6px 2px;
 }
 .layer-row input[type="checkbox"] { flex: 0 0 auto; width: 15px; height: 15px; }
 .layer-row label { flex: 1; cursor: pointer; font-size: 13.5px; }
+
+/* 2026-09-09: moved in from a standalone .section-hint that sat above the
+   whole list - now scoped to the one row it describes (currently just WiE).
+   flex: 0 0 100% forces it onto its own line under the checkbox/swatch/
+   label row; the 23px indent (checkbox width 15px + the row's 8px gap)
+   lines its text up under the swatch, not the checkbox. */
+.layer-hint {
+  flex: 0 0 100%;
+  margin: 3px 0 0;
+  padding-left: 23px;
+  color: var(--ui-muted);
+  font-size: 11.5px;
+  line-height: 1.35;
+}
 
 /* The queryable layer, set apart from the rest. */
 .layer-row--primary {

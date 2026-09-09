@@ -151,6 +151,12 @@ export const LAYERS = [
     count: 119,
     defaultVisible: true,
     queryable: true, // the ONLY queryable layer - see the file header
+    // 2026-09-09: moved here from a standalone <p class="section-hint"> that
+    // sat above the whole layer list - now rendered inside this row by
+    // rowHtml() in js/legend.js, since it explains what a click on THIS
+    // layer does. `hint` is generic (any LAYERS entry can carry one); today
+    // only `we` does.
+    hint: 'Details öffnen sich per Klick auf eine Wirtschaftseinheit.',
     qml: 'qml/mv_we.qml',
     // singleSymbol, 2 stacked SimpleFill layers: solid fill, then a
     // f_diagonal hatch overlay, then the outline.

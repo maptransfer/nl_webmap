@@ -37,17 +37,21 @@ function swatchHtml(entry, patternData) {
   return '';
 }
 
-/** One <li> row: checkbox, symbol swatch, name. Deliberately no expandable
- *  detail (2026-09-09 simplification) - the swatch alone is the legend now.
- *  The queryable layer keeps an accent treatment (left border + tint via
- *  .layer-row--primary), which together with the .section-hint sentence
- *  above the list is what still says which layer answers a click. */
+/** One <li> row: checkbox, symbol swatch, name, and (if cfg.hint is set) a
+ *  second muted line explaining what a click on this layer does - moved
+ *  in from a standalone .section-hint above the whole list (2026-09-09) so
+ *  it reads as belonging to the one layer it describes. Deliberately no
+ *  expandable detail otherwise (2026-09-09 simplification) - the swatch
+ *  alone is the legend now. The queryable layer keeps an accent treatment
+ *  (left border + tint via .layer-row--primary). */
 function rowHtml(cfg, patterns) {
+  const hint = cfg.hint ? `<p class="layer-hint">${esc(cfg.hint)}</p>` : '';
   return `
     <li class="layer-row${cfg.queryable ? ' layer-row--primary' : ''}" data-key="${cfg.key}">
       <input type="checkbox" id="cb-${cfg.key}" ${cfg.defaultVisible ? 'checked' : ''}>
       ${swatchHtml(cfg.legend[0], patterns)}
       <label for="cb-${cfg.key}">${esc(cfg.title)}</label>
+      ${hint}
     </li>`;
 }
 
