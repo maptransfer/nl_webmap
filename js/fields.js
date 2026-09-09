@@ -95,7 +95,9 @@ export const LABELS = {
     funktionen: 'ALKIS Funktionen',
     nutzungsbezeichnungen: 'ALKIS Nutzungsbezeichnungen',
     nutzungsarten: 'SAP Nutzungsarten',
-    baujahre: 'Baujahre',
+    // Deliberate deviation from the QML alias (client wording request,
+    // 2026-09-09) - QML says 'Baujahre', client asked for 'Baujahr(e)'.
+    baujahre: 'Baujahr(e)',
     jahre_modernisierung: 'Modernisiert',
     // The anzahl_* labels below are unused by weBody(): the popup's badge
     // row already covers these six counts with its own short labels, so no
