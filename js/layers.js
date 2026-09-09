@@ -168,7 +168,12 @@ export const LAYERS = [
         paint: { 'line-color': '#232323', 'line-width': W_05M },
       },
     ],
-    highlight: { color: '#00e5ff', width: 3 },
+    // `foundWidth` is the outline width while js/search.js's `found`
+    // feature-state is set (a search result the user selected) - wider than
+    // plain `hover` so a searched WiE reads as "the one you searched for"
+    // even after the pointer leaves it, since `found` persists and `hover`
+    // doesn't. Same colour as hover - see buildStyleLayers() below.
+    highlight: { color: '#00e5ff', width: 3, foundWidth: 5 },
     legend: [{ kind: 'fillPattern', fill: '#de9f9e', pattern: 'pat-fdiag-we', stroke: '#232323', label: 'Fläche WiE (schraffiert)' }],
   },
 
@@ -323,8 +328,12 @@ export function buildStyleLayers(layers) {
       minzoom: DETAIL_MINZOOM,
       paint: {
         'line-color': cfg.highlight.color,
-        'line-width': cfg.highlight.width,
-        'line-opacity': ['case', ['boolean', ['feature-state', 'hover'], false], 1, 0],
+        // `found` (js/search.js's search-result outline) wins the width
+        // over plain `hover` when both happen to be true at once (pointer
+        // resting on a just-searched WiE) - it's the more deliberate of the
+        // two states.
+        'line-width': ['case', ['boolean', ['feature-state', 'found'], false], cfg.highlight.foundWidth ?? cfg.highlight.width, cfg.highlight.width],
+        'line-opacity': ['case', ['any', ['boolean', ['feature-state', 'hover'], false], ['boolean', ['feature-state', 'found'], false]], 1, 0],
       },
     });
   }

@@ -343,6 +343,102 @@ details[open] > summary .chev { transform: rotate(90deg); }
   white-space: nowrap;
 }
 
+/* ---------- search (js/search.js) ---------- */
+
+/* Base layout: viewport-centred, for the >=1100px band. The two narrower
+   bands below override left/transform/width so the box never collides with
+   the sidebar (top-left, z-index 10) or the NavigationControl (top-right,
+   under the map's own z-index) - see the responsive section at the bottom
+   of this file for the actual breakpoints. z-index 26 sits above the intro
+   card (25, so the search is never a visible-but-dead control under it) and
+   below the error banner (30). */
+.search {
+  position: absolute;
+  top: 10px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 26;
+  width: min(420px, 92vw);
+}
+
+.search-box {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  background: var(--ui-bg);
+  border: 1px solid var(--ui-border);
+  border-radius: 8px;
+  box-shadow: var(--shadow);
+  padding: 8px 10px;
+}
+.search-icon { flex: 0 0 auto; color: var(--ui-muted); }
+.search-input {
+  flex: 1 1 auto;
+  min-width: 0;
+  border: 0;
+  outline: none;
+  font: inherit;
+  font-size: 13.5px;
+  background: transparent;
+  color: var(--ui-text);
+}
+.search-input::placeholder { color: var(--ui-muted); }
+.search-clear {
+  flex: 0 0 auto;
+  border: 0;
+  background: transparent;
+  color: var(--ui-muted);
+  font-size: 18px;
+  line-height: 1;
+  cursor: pointer;
+  padding: 0 3px;
+}
+.search-clear:hover { color: var(--ui-text); }
+
+.search-results {
+  list-style: none;
+  margin: 6px 0 0;
+  padding: 4px 0;
+  max-height: min(60vh, 420px);
+  overflow-y: auto;
+  background: var(--ui-bg);
+  border: 1px solid var(--ui-border);
+  border-radius: 8px;
+  box-shadow: var(--shadow);
+}
+/* Same specificity trap as .toast[hidden] (see below and PROGRESS.md's v1
+   verification, bug #3) - `.search-results` sets its own `display` nowhere,
+   so no override is actually needed here, but the rule is kept explicit and
+   next to the class for the same reason the .toast one is: so a future
+   `display` added to .search-results doesn't silently reintroduce the bug. */
+.search-results[hidden] { display: none; }
+
+.search-result { padding: 6px 12px; cursor: pointer; border-left: 3px solid transparent; }
+.search-result:hover,
+.search-result.is-highlighted { background: #f7f2ed; border-left-color: var(--accent); }
+.search-result-tags { display: flex; gap: 4px; flex-wrap: wrap; margin-bottom: 2px; }
+.search-tag {
+  font-size: 10px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: .02em;
+  color: var(--accent);
+  background: #f9d6d2;
+  border-radius: 3px;
+  padding: 1px 5px;
+}
+.search-result-main { display: flex; align-items: baseline; gap: 6px; }
+.search-result-id { font-weight: 700; font-size: 13px; flex: 0 0 auto; }
+.search-result-bez {
+  font-size: 12.5px;
+  color: var(--ui-text);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.search-result-sub { font-size: 11px; color: var(--ui-muted); margin-top: 1px; }
+.search-empty, .search-more { padding: 8px 12px; font-size: 12.5px; color: var(--ui-muted); }
+
 /* ---------- error banner / toast ---------- */
 
 .error-banner {
@@ -546,6 +642,33 @@ details[open] > summary .chev { transform: rotate(90deg); }
 
 /* ---------- responsive ---------- */
 
+/* .search's medium band: the sidebar (docked left, --sidebar-w wide, not
+   yet collapsed at this width - the JS collapse in js/app.js's
+   initSidebarCollapse() shares the 900px breakpoint below) would sit under
+   a viewport-centred search box, so left-align it just past the sidebar
+   instead and cap its width against the NavigationControl's top-right
+   corner (~60px reserved, roughly matching that control's own width).
+   Placed BEFORE the 900px block below so a narrower viewport (where both
+   queries match) lets that block's rules win the cascade. */
+@media (max-width: 1100px) {
+  .search {
+    left: calc(var(--sidebar-w) + 34px);
+    transform: none;
+    width: min(360px, calc(100vw - var(--sidebar-w) - 34px - 60px));
+  }
+}
+
 @media (max-width: 900px) {
   :root { --sidebar-w: min(340px, calc(100vw - 20px)); }
+
+  /* Narrow band: the sidebar has collapsed to its ~44px toggle button (see
+     js/app.js's initSidebarCollapse(), same 900px breakpoint) - span the
+     search box between that and the NavigationControl instead of pinning a
+     width to the now-irrelevant --sidebar-w. */
+  .search {
+    left: 60px;
+    right: 50px;
+    width: auto;
+    transform: none;
+  }
 }

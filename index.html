@@ -11,6 +11,22 @@
 
 <div id="map" role="application" aria-label="Karte Neue Lübecker"></div>
 
+<div id="search" class="search" role="search">
+  <div class="search-box">
+    <svg class="search-icon" viewBox="0 0 24 24" width="16" height="16" aria-hidden="true">
+      <circle cx="11" cy="11" r="7" stroke="currentColor" stroke-width="2" fill="none"/>
+      <line x1="21" y1="21" x2="16.2" y2="16.2" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+    </svg>
+    <input id="search-input" type="text" class="search-input" autocomplete="off"
+           placeholder="WiE-Nr., Bezeichnung oder Alt-Az suchen …"
+           role="combobox" aria-expanded="false" aria-controls="search-results"
+           aria-autocomplete="list" aria-label="Wirtschaftseinheit suchen">
+    <button id="search-clear" type="button" class="search-clear" hidden
+            title="Suche löschen" aria-label="Suche löschen">&times;</button>
+  </div>
+  <ul id="search-results" class="search-results" role="listbox" hidden></ul>
+</div>
+
 <aside id="sidebar" class="sidebar" aria-label="Ebenen und Standorte">
   <button id="sidebar-toggle" class="sidebar-toggle" type="button"
           aria-expanded="true" aria-controls="sidebar-body" title="Ebenen ein-/ausblenden">

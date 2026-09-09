@@ -58,7 +58,9 @@ function ugLabel(rawName) {
   return first.length < stripped.length ? `${first} u.a.` : first;
 }
 
-function centre(bounds) {
+// Exported so js/search.js can test a WiE's bbox centre against the same
+// TOWNS[].subAreas boxes without re-deriving this exact math a second place.
+export function centre(bounds) {
   const [[w, s], [e, n]] = bounds;
   return [(w + e) / 2, (s + n) / 2];
 }

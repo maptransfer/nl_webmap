@@ -6,6 +6,7 @@ import { TOWNS, COMBINED_BOUNDS } from './bookmarks.js';
 import { SERVICE_CENTERS, DEFAULT_VIEW, stripTownPrefix } from './areas.js';
 import { esc, slug, navTownId, navUgId } from './util.js';
 import { initOverview, queryOverviewHits } from './overview.js';
+import { initSearch } from './search.js';
 
 // ---- pmtiles protocol ------------------------------------------------------
 // Absolutised against document.baseURI (no hardcoded hostname) so the same
@@ -22,6 +23,19 @@ function sidebarPadLeft() {
 }
 function fitPadding() {
   return { top: 24, right: 24, bottom: 24, left: sidebarPadLeft() };
+}
+
+// Used only by js/search.js's jump-to-result: a WiE bbox is tiny (<=90m, see
+// PROGRESS.md), so fitBounds's own maxZoom cap always decides the zoom and
+// this padding only shifts WHERE the WiE lands on screen. A generous top
+// reserve pushes it into the lower half of the map, so the popup search.js
+// auto-opens on arrival - which MapLibre anchors above the point - lands in
+// the free space above the WiE instead of covering it. Clamped to 45% of
+// the map's own height so it can't invert the fit on a short viewport.
+function searchFitPadding() {
+  const mapHeight = document.getElementById('map').clientHeight;
+  const topReserve = Math.min(300, mapHeight * 0.45);
+  return { top: topReserve, right: 24, bottom: 24, left: sidebarPadLeft() };
 }
 
 // ---- initial style: basemap only. Vector layers are added in map.on('load')
@@ -122,6 +136,15 @@ map.on('load', () => {
   initOverview(map);
   wireHover(map);
   wireClicks(map);
+  // activateAreaForWe is assigned synchronously by initAreaPicker()'s own
+  // IIFE below, at module load - already set by the time this 'load'
+  // handler runs, so the wrapper arrow just defers the lookup by reference
+  // rather than needing initSearch to be called any later than this.
+  initSearch(map, {
+    openPopup,
+    searchFitPadding,
+    activateArea: (townName, subAreaRawName) => activateAreaForWe(townName, subAreaRawName),
+  });
 });
 
 // ---- hover highlight --------------------------------------------------
@@ -190,7 +213,10 @@ function wireClicks(map) {
   });
 }
 
-function openPopup(map, lngLat, hits, activeIndex) {
+// Exported so js/search.js's jump-to-result can reuse this exact code path
+// for a search selection - real tile data via querySourceFeatures(), same
+// grouping/scroll-fix logic, no popup field duplicated into js/we_index.js.
+export function openPopup(map, lngLat, hits, activeIndex) {
   function render(idx) {
     const container = document.createElement('div');
     container.innerHTML = buildPopupHtml(hits, idx);
@@ -215,6 +241,7 @@ function openPopup(map, lngLat, hits, activeIndex) {
     .setLngLat(lngLat)
     .setDOMContent(render(activeIndex))
     .addTo(map);
+  return popup;
 }
 
 // ---- sidebar: collapse / expand -----------------------------------------
@@ -240,6 +267,14 @@ function openPopup(map, lngLat, hits, activeIndex) {
     setCollapsed(!sidebar.classList.contains('is-collapsed'));
   });
 })();
+
+// Assigned by initAreaPicker() below, on its way out. js/search.js's
+// jump-to-result calls this to activate (reveal + is-active) the sidebar
+// row for a searched WiE's containing Untergebiet - deliberately NOT that
+// row's own .click() (the trick js/overview.js uses for its markers), since
+// that also flies to the Untergebiet's bounds and would fight the WiE's own
+// fitBounds call in js/search.js.
+let activateAreaForWe = null;
 
 // ---- sidebar: ServiceCenter / Standort / Untergebiet picker ---------------
 // Renders the client's full portfolio (js/areas.js) as a 3-level tree, so the
@@ -419,6 +454,15 @@ function openPopup(map, lngLat, hits, activeIndex) {
       panel.hidden = open;
     });
   });
+
+  // Exposed for js/search.js - see the comment on the module-scope
+  // `activateAreaForWe` declaration above.
+  activateAreaForWe = function (townName, subAreaRawName) {
+    const el = document.getElementById(navUgId(townName, subAreaRawName));
+    if (!el) return;
+    reveal(el);
+    setActive(el);
+  };
 })();
 
 // ---- intro card: frames the app as a demo, shown on every load ------------
