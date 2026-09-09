@@ -90,6 +90,15 @@ export const LAYERS = [
       // v_flst_grundbuchblaetter, same 64 features, alternate view of the
       // same entities as grundbuch_ansicht). Its own `sourceLayer` overrides
       // the parent cfg's for this one part - see buildStyleLayers().
+      //
+      // 2026-09-09: moved off the polygon centre and onto the boundary
+      // (client request) - symbol-placement:'line' runs the label along the
+      // polygon's own rings (MapLibre treats a fill layer's rings as the
+      // line geometry for this purpose), text-rotation-alignment defaults to
+      // 'map' under 'line' placement so it rotates to follow the edge,
+      // symbol-spacing repeats it every ~400px of boundary instead of the
+      // 250px default, and the small negative text-offset nudges it off the
+      // line towards the polygon's inside rather than sitting on top of it.
       {
         id: 'label', type: 'symbol', sourceLayer: 'flst_grundbuchblaetter',
         minzoom: 16, // QGIS scaleMax=2600 -> exact z>=16.96, widened to 16
@@ -97,6 +106,9 @@ export const LAYERS = [
           'text-field': ['concat', 'Blatt: ', ['to-string', ['get', 'grundbuch_blatt']]],
           'text-font': ['Open Sans Regular'],
           'text-size': ['interpolate', ['exponential', 2], ['zoom'], 17, 10, 19, 17, 20, 24],
+          'symbol-placement': 'line',
+          'symbol-spacing': 400,
+          'text-offset': [0, -0.8],
           'text-anchor': 'center',
           'text-allow-overlap': false,
           'text-ignore-placement': false,
