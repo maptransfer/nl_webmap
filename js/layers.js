@@ -4,11 +4,11 @@
 //
 // `queryable: true` marks a layer as the object of a click: it alone gets a
 // popup, a hover highlight and a pointer cursor. Only `we` carries it - the
-// other five layers are context (parcel boundaries, buildings, Grundbuch
-// outlines, labels) and stay toggleable but inert. Making another layer
-// queryable again is this one flag plus, for a thin-line layer, restoring its
-// commented-out `hit` part; the popup bodies for the other layers are still
-// present in js/popups.js.
+// other four layers are context (parcel boundaries, buildings, Grundbuch
+// outlines + their label, addresses) and stay toggleable but inert. Making
+// another layer queryable again is this one flag plus, for a thin-line
+// layer, restoring its commented-out `hit` part; the popup bodies for the
+// other layers are still present in js/popups.js.
 //
 // Colours and widths are taken verbatim from the QML files in qml/ (see the
 // comment on each entry). Width/size ramps use
@@ -25,6 +25,16 @@ const W_05M = ['interpolate', ['exponential', 2], ['zoom'], 14, 0.6, 18, 1.4, 20
 const W_15M = ['interpolate', ['exponential', 2], ['zoom'], 12, 1.2, 17, 2.1, 19, 8.4];
 
 // ---- layer config -----------------------------------------------------
+//
+// `LAYERS` stays in DRAW order (bottom -> top of the map stack). Sidebar
+// display order is a separate concern - see `LEGEND_ORDER` below - because
+// the 2026-09-09 sidebar simplification put Hausnummern above
+// Grundbuchblätter in the list even though it's drawn last on the map.
+//
+// `count`/`subtitle` are kept as config documentation (traceable back to the
+// source export and QML) but are no longer rendered anywhere in the UI as of
+// the 2026-09-09 legend simplification - the sidebar row now shows only a
+// checkbox, a symbol and the title.
 
 export const LAYERS = [
   // Bottom of the stack: largest-area context first.
@@ -52,13 +62,16 @@ export const LAYERS = [
     key: 'grundbuch_ansicht',
     sourceLayer: 'grundbuch_ansicht',
     idField: 'id',
+    // 2026-09-09: merged with the former standalone `flst_grundbuchblaetter`
+    // entry into one switch - to the client these are one thing
+    // (Grundbuchblätter and their sheet-number label), not two layers.
     title: 'Grundbuchblätter',
     subtitle: 'Grundbuchbezirke / -blätter',
     count: 64,
     defaultVisible: true,
     qml: 'qml/v_grundbuch_ansicht.qml',
-    // style="no" -> NO fill layer. Outline only.
     parts: [
+      // style="no" -> NO fill layer. Outline only.
       {
         id: 'line', type: 'line', layout: { 'line-join': 'bevel' },
         paint: { 'line-color': '#838383', 'line-width': W_15M },
@@ -72,7 +85,28 @@ export const LAYERS = [
       //   id: 'hit', type: 'line', interactionOnly: true,
       //   paint: { 'line-color': '#000000', 'line-opacity': 0, 'line-width': 8 },
       // },
+      // Sheet-number label ("Blatt: 735"), formerly the standalone
+      // `flst_grundbuchblaetter` layer/checkbox (source view
+      // v_flst_grundbuchblaetter, same 64 features, alternate view of the
+      // same entities as grundbuch_ansicht). Its own `sourceLayer` overrides
+      // the parent cfg's for this one part - see buildStyleLayers().
+      {
+        id: 'label', type: 'symbol', sourceLayer: 'flst_grundbuchblaetter',
+        minzoom: 16, // QGIS scaleMax=2600 -> exact z>=16.96, widened to 16
+        layout: {
+          'text-field': ['concat', 'Blatt: ', ['to-string', ['get', 'grundbuch_blatt']]],
+          'text-font': ['Open Sans Regular'],
+          'text-size': ['interpolate', ['exponential', 2], ['zoom'], 17, 10, 19, 17, 20, 24],
+          'text-anchor': 'center',
+          'text-allow-overlap': false,
+          'text-ignore-placement': false,
+          'text-padding': 2,
+        },
+        paint: { 'text-color': '#626262' },
+      },
     ],
+    // Legend shows only the boundary line (user's choice, 2026-09-09) - the
+    // label is still toggled by this row but not pictured separately.
     legend: [{ kind: 'line', stroke: '#838383', label: 'Grenze (keine Füllung)' }],
   },
 
@@ -80,7 +114,7 @@ export const LAYERS = [
     key: 'gebaeude_ansicht',
     sourceLayer: 'gebaeude_ansicht',
     idField: 'id',
-    title: 'Gebäude',
+    title: 'nicht-Wohngebäude', // 2026-09-09: was "Gebäude"
     subtitle: 'ALKIS-Gebäude ohne SAP-Adresszuordnung',
     count: 174,
     defaultVisible: true,
@@ -120,41 +154,13 @@ export const LAYERS = [
     legend: [{ kind: 'fillPattern', fill: '#de9f9e', pattern: 'pat-fdiag-we', stroke: '#232323', label: 'Fläche WiE (schraffiert)' }],
   },
 
-  // ---- label-only layers: draw order puts these above every fill --------
-
-  {
-    key: 'flst_grundbuchblaetter',
-    sourceLayer: 'flst_grundbuchblaetter',
-    idField: 'id',
-    title: 'Blattnummern',
-    subtitle: 'Beschriftung der Grundbuchblätter',
-    count: 64,
-    defaultVisible: true,
-    qml: 'qml/v_flst_grundbuchblaetter.qml',
-    parts: [
-      {
-        id: 'label', type: 'symbol',
-        minzoom: 16, // QGIS scaleMax=2600 -> exact z>=16.96, widened to 16
-        layout: {
-          'text-field': ['concat', 'Blatt: ', ['to-string', ['get', 'grundbuch_blatt']]],
-          'text-font': ['Open Sans Regular'],
-          'text-size': ['interpolate', ['exponential', 2], ['zoom'], 17, 10, 19, 17, 20, 24],
-          'text-anchor': 'center',
-          'text-allow-overlap': false,
-          'text-ignore-placement': false,
-          'text-padding': 2,
-        },
-        paint: { 'text-color': '#626262' },
-      },
-    ],
-    legend: [{ kind: 'label', color: '#626262', weight: 400, sample: 'Blatt: 735', meta: 'nur Beschriftung · ab Zoom 16' }],
-  },
+  // ---- label-only layer: draw order puts this above every fill ----------
 
   {
     key: 'adressen',
     sourceLayer: 'adressen',
     idField: 'id',
-    title: 'Adressen',
+    title: 'Hausnummern', // 2026-09-09: was "Adressen"
     subtitle: 'Hausnummern (ALKIS/SAP-abgeglichen)',
     count: 272,
     defaultVisible: true,
@@ -209,6 +215,14 @@ export const LAYERS = [
   // },
 ];
 
+// Sidebar display order (top -> bottom), independent of draw order above.
+// 2026-09-09: the client asked for WiE - nicht-Wohngebäude - Hausnummern -
+// Grundbuchblätter - Flurstücke, which is no longer a reversal of `LAYERS`
+// (Hausnummern is drawn last on the map but listed above Grundbuchblätter).
+// renderLegend() in js/legend.js sorts by this list; any layer key missing
+// from it is appended at the end rather than silently dropped.
+export const LEGEND_ORDER = ['we', 'gebaeude_ansicht', 'adressen', 'grundbuch_ansicht', 'flurstuecke'];
+
 // ---- derived builders ---------------------------------------------------
 
 /** { we: 'we_id', flurstuecke: 'id', ... } for the vector source's promoteId. */
@@ -218,26 +232,37 @@ export function buildPromoteId(layers) {
   return out;
 }
 
-/** Ordered array of MapLibre layer objects, bottom -> top, in LAYERS order,
- *  followed by one highlight line layer per entry that declares `highlight`
- *  (only the queryable ones do) so hover highlights always sit above every
- *  fill regardless of layer toggles. */
+/** Ordered array of MapLibre layer objects, bottom -> top: every non-symbol
+ *  part in LAYERS order, then every symbol (label) part in LAYERS order, then
+ *  one highlight line layer per entry that declares `highlight` (only the
+ *  queryable ones do). Symbol parts are hoisted above all fills/lines as a
+ *  structural rule - not just position in LAYERS - because a merged entry
+ *  (grundbuch_ansicht) now carries both a line part and a label part, and the
+ *  label still needs to sit above every fill regardless of where in LAYERS
+ *  its parent entry lives.
+ *  A part may set its own `sourceLayer` to read from a different tiled layer
+ *  than its parent cfg (used by grundbuch_ansicht's merged label part, which
+ *  reads the separately-tiled `flst_grundbuchblaetter` source-layer). */
 export function buildStyleLayers(layers) {
   const out = [];
+  const emit = (cfg, part) => {
+    const layer = {
+      id: `${cfg.key}-${part.id}`,
+      type: part.type,
+      source: 'nl',
+      'source-layer': part.sourceLayer || cfg.sourceLayer,
+      layout: { visibility: cfg.defaultVisible ? 'visible' : 'none', ...(part.layout || {}) },
+      paint: part.paint,
+    };
+    if (part.minzoom != null) layer.minzoom = part.minzoom;
+    if (part.maxzoom != null) layer.maxzoom = part.maxzoom;
+    out.push(layer);
+  };
   for (const cfg of layers) {
-    for (const part of cfg.parts) {
-      const layer = {
-        id: `${cfg.key}-${part.id}`,
-        type: part.type,
-        source: 'nl',
-        'source-layer': cfg.sourceLayer,
-        layout: { visibility: cfg.defaultVisible ? 'visible' : 'none', ...(part.layout || {}) },
-        paint: part.paint,
-      };
-      if (part.minzoom != null) layer.minzoom = part.minzoom;
-      if (part.maxzoom != null) layer.maxzoom = part.maxzoom;
-      out.push(layer);
-    }
+    for (const part of cfg.parts) if (part.type !== 'symbol') emit(cfg, part);
+  }
+  for (const cfg of layers) {
+    for (const part of cfg.parts) if (part.type === 'symbol') emit(cfg, part);
   }
   for (const cfg of layers) {
     if (!cfg.highlight) continue;
