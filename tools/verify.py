@@ -953,6 +953,158 @@ def check_overview_markers(page, a):
     a.ok(not affordance_after["dimmed"], "#layer-list lost .is-dimmed at the same zoom")
 
 
+@check("wie_search", "Searching by WiE-Nr./Bezeichnung/Alt-Az tags each result correctly, and selecting one flies/pulses/opens the real popup")
+def check_wie_search(page, a):
+    # ---- js/we_index.js invariants -----------------------------------
+    # The one offline finding (PROGRESS.md) this whole feature leans on:
+    # every WiE bbox centre resolves to exactly one TOWNS[].subAreas box, so
+    # the sidebar-activation half of a jump never needs a fallback. Verified
+    # here at runtime, not just during planning, so a future re-export that
+    # breaks it fails loudly instead of silently.
+    index_check = page.js("""
+      const idx = await import(new URL('js/we_index.js', document.baseURI).href);
+      const bm = await import(new URL('js/bookmarks.js', document.baseURI).href);
+      const entries = idx.WE_INDEX;
+      function centre(b) { const [[w, s], [e, n]] = b; return [(w + e) / 2, (s + n) / 2]; }
+      let resolvedOnce = 0;
+      for (const e of entries) {
+        const [cx, cy] = centre(e.bounds);
+        let hits = 0;
+        for (const town of bm.TOWNS) {
+          for (const sub of (town.subAreas || [])) {
+            const [[w, s], [ee, n]] = sub.bounds;
+            if (cx >= w && cx <= ee && cy >= s && cy <= n) hits++;
+          }
+        }
+        if (hits === 1) resolvedOnce++;
+      }
+      const withAz = entries.find((e) => e.az && e.az.length);
+      const bezTokens = entries[0].bez.split(/[^a-zA-Z0-9äöüßÄÖÜ]+/).filter(Boolean);
+      return {
+        count: entries.length,
+        uniqueIds: new Set(entries.map((e) => e.id)).size,
+        resolvedOnce,
+        firstId: entries[0].id,
+        firstPad: entries[0].pad,
+        bezToken: bezTokens[1] || bezTokens[0], // skip the "AH"/"RZ" town prefix token
+        azEntryId: withAz ? withAz.id : null,
+        azValue: withAz ? withAz.az[0] : null,
+      };
+    """)
+    a.eq(index_check["count"], 119, "js/we_index.js has 119 WiE entries")
+    a.eq(index_check["uniqueIds"], index_check["count"], "every WE_INDEX entry has a unique id")
+    a.eq(index_check["resolvedOnce"], index_check["count"],
+         "every WE_INDEX entry's bbox centre resolves to exactly one TOWNS[].subAreas box")
+    if not a.ok(index_check["azEntryId"] is not None, "at least one WE_INDEX entry carries an Alt-Az (needed for the tag checks below)"):
+        return
+
+    def type_query(q):
+        return page.js(f"""
+          const input = document.getElementById('search-input');
+          input.value = {json.dumps(q)};
+          input.dispatchEvent(new Event('input', {{ bubbles: true }}));
+          await new Promise((r) => requestAnimationFrame(r));
+          const rows = [...document.querySelectorAll('#search-results .search-result')];
+          return rows.map((row) => ({{
+            id: row.querySelector('.search-result-id')?.textContent ?? null,
+            tags: [...row.querySelectorAll('.search-tag')].map((t) => t.textContent),
+          }}));
+        """)
+
+    # WiE-Nr. query - the first (and, since it's an exact id match, only
+    # top-tier) row must be the searched WiE, tagged WiE-Nr.
+    rows = type_query(index_check["firstPad"])
+    if a.ok(len(rows) > 0, f"searching \"{index_check['firstPad']}\" returns at least one row"):
+        a.eq(rows[0]["id"], index_check["firstPad"], "top row is the exact WiE-Nr. match")
+        a.contains("WiE-Nr.", rows[0]["tags"], "top row is tagged WiE-Nr.")
+
+    # Bezeichnung query - a real word from WE_INDEX[0].bez must surface that
+    # WiE somewhere in the list, tagged Bezeichnung.
+    rows = type_query(index_check["bezToken"])
+    hit = next((r for r in rows if r["id"] == index_check["firstPad"]), None)
+    if a.ok(hit is not None, f"searching \"{index_check['bezToken']}\" (a word from that WiE's own Bezeichnung) surfaces it"):
+        a.contains("Bezeichnung", hit["tags"], "that row is tagged Bezeichnung")
+
+    # Alt-Az query - the load-bearing ambiguity case (PROGRESS.md: 33 of 41
+    # Alt-Az values collide with a real WiE-Nr.): the row for the WiE that
+    # OWNS this Alt-Az must be tagged with it, not silently folded into a
+    # WiE-Nr. match on some other row.
+    rows = type_query(index_check["azValue"])
+    lookup = page.js(f"""
+      const idx = await import(new URL('js/we_index.js', document.baseURI).href);
+      const e = idx.WE_INDEX.find((x) => x.id === {index_check["azEntryId"]});
+      return e.pad;
+    """)
+    hit = next((r for r in rows if r["id"] == lookup), None)
+    if a.ok(hit is not None, f"searching Alt-Az \"{index_check['azValue']}\" surfaces the WiE it belongs to ({lookup})"):
+        a.ok(any(t.startswith("Alt-Az") for t in hit["tags"]), "that row carries an Alt-Az tag naming the matched value")
+
+    # ---- selecting a result: force-show, sidebar activation, fly, pulse, popup
+    mod = page.js("""
+      const layers = await import(new URL('js/layers.js', document.baseURI).href);
+      return { detailMinzoom: layers.DETAIL_MINZOOM };
+    """)
+    type_query(index_check["firstPad"])
+    page.js("""
+      document.getElementById('cb-we').checked = false;
+      document.getElementById('cb-we').dispatchEvent(new Event('change'));
+    """)
+    page.js("""
+      const row = document.querySelector('#search-results .search-result');
+      row.click();
+    """)
+    page.js("""
+      await new Promise((resolve) => {
+        const t = setTimeout(resolve, 4000);
+        map.once('idle', () => { clearTimeout(t); resolve(); });
+      });
+      // settle past the pulse's on/off cycles (see js/search.js's PULSE_*
+      // constants) before reading the persisted `found` feature-state.
+      await new Promise((r) => setTimeout(r, 1800));
+    """)
+    after = page.js(f"""
+      const cb = document.getElementById('cb-we');
+      const feats = map.queryRenderedFeatures({{ layers: ['we-fill'] }});
+      const popup = document.querySelector('.maplibregl-popup .popup-head .title');
+      const rowId = {index_check["firstId"]};
+      return {{
+        cbChecked: cb.checked,
+        zoom: map.getZoom(),
+        weVisible: feats.length > 0,
+        found: map.getFeatureState({{ source: 'nl', sourceLayer: 'we', id: rowId }}).found === true,
+        popupTitle: popup ? popup.textContent : null,
+      }};
+    """)
+    a.ok(after["cbChecked"], "selecting a result re-checked #cb-we (was switched off before searching)")
+    a.ok(after["zoom"] >= mod["detailMinzoom"], f"post-selection zoom ({after['zoom']:.2f}) is >= DETAIL_MINZOOM ({mod['detailMinzoom']})")
+    a.ok(after["zoom"] <= 17.5, f"post-selection zoom ({after['zoom']:.2f}) respects the ~17 fitBounds cap")
+    a.ok(after["weVisible"], "the we-fill layer renders something after selection (layer was force-shown)")
+    a.ok(after["found"], "the selected WiE carries a persisted `found` feature-state after the pulse settles")
+    a.ok(after["popupTitle"] is not None and index_check["firstPad"] in after["popupTitle"],
+         f"an auto-opened popup's title contains the selected WiE's padded id ({index_check['firstPad']})")
+
+    sidebar = page.js(f"""
+      const idx = await import(new URL('js/we_index.js', document.baseURI).href);
+      const bm = await import(new URL('js/bookmarks.js', document.baseURI).href);
+      const util = await import(new URL('js/util.js', document.baseURI).href);
+      function centre(b) {{ const [[w, s], [e, n]] = b; return [(w + e) / 2, (s + n) / 2]; }}
+      const e = idx.WE_INDEX.find((x) => x.id === {index_check["firstId"]});
+      const [cx, cy] = centre(e.bounds);
+      for (const town of bm.TOWNS) {{
+        for (const sub of (town.subAreas || [])) {{
+          const [[w, s], [ee, n]] = sub.bounds;
+          if (cx >= w && cx <= ee && cy >= s && cy <= n) {{
+            const el = document.getElementById(util.navUgId(town.name, sub.name));
+            return {{ found: !!el, isActive: el ? el.classList.contains('is-active') : false }};
+          }}
+        }}
+      }}
+      return {{ found: false, isActive: false }};
+    """)
+    if a.ok(sidebar["found"], "the selected WiE's containing Untergebiet sidebar row exists"):
+        a.ok(sidebar["isActive"], "that sidebar row carries .is-active after the selection (no-fly activation)")
+
+
 # ---------------------------------------------------------------------------
 # Server auto-start (localhost only)
 # ---------------------------------------------------------------------------
