@@ -4,7 +4,8 @@ import { renderLegend } from './legend.js';
 import { buildPopupHtml, wirePopupInteractions } from './popups.js';
 import { TOWNS, COMBINED_BOUNDS } from './bookmarks.js';
 import { SERVICE_CENTERS, DEFAULT_VIEW, stripTownPrefix } from './areas.js';
-import { esc, slug } from './util.js';
+import { esc, slug, navTownId, navUgId } from './util.js';
+import { initOverview, queryOverviewHits } from './overview.js';
 
 // ---- pmtiles protocol ------------------------------------------------------
 // Absolutised against document.baseURI (no hardcoded hostname) so the same
@@ -114,6 +115,11 @@ map.on('load', () => {
   }
 
   renderLegend(map, LAYERS, patterns, document.getElementById('layer-list'));
+  // Before wireHover()/wireClicks(): both fold in overviewHitLayerIds(), so
+  // those layer ids must already exist in the style, or queryRenderedFeatures
+  // logs a console error on every mousemove (which console_clean would then
+  // fail on).
+  initOverview(map);
   wireHover(map);
   wireClicks(map);
 });
@@ -122,7 +128,10 @@ map.on('load', () => {
 // One map-level mousemove handler (not one per layer), scoped to the same
 // HIT list as the click handler: the cyan outline and the pointer cursor
 // therefore appear only over the queryable layer, so the cursor itself says
-// what will answer a click.
+// what will answer a click. The overview markers (js/overview.js) fold into
+// the CURSOR half of that only - not the cyan feature-state highlight, which
+// stays scoped to `we` alone; the markers get their own hover ring, wired
+// inside initOverview() itself.
 //
 // feature-state requires promoteId (set above) on a real business
 // key: the tiles' own mvt_id is synthesised PER TILE, so a polygon clipped
@@ -144,7 +153,8 @@ function wireHover(map) {
     if (hovered) {
       map.setFeatureState({ source: 'nl', sourceLayer: hovered.sourceLayer, id: hovered.id }, { hover: true });
     }
-    map.getCanvas().style.cursor = hovered ? 'pointer' : '';
+    const overMarker = !hovered && queryOverviewHits(map, e.point).length > 0;
+    map.getCanvas().style.cursor = (hovered || overMarker) ? 'pointer' : '';
   });
 
   map.on('mouseout', () => {
@@ -166,6 +176,14 @@ function wireClicks(map) {
   const HIT = hitLayerIds(LAYERS);
 
   map.on('click', (e) => {
+    // An overview marker sits on top and handles its own click (see
+    // initOverview() in js/overview.js) - never open the WiE popup under
+    // one. In practice the two are never both hit-testable at the same
+    // zoom (the marker layers' effective maxzoom, enforced by
+    // queryOverviewHits()'s own zoom check, equals the thematic layers'
+    // hard minzoom, DETAIL_MINZOOM), but this stays correct even if that
+    // threshold is ever retuned to leave a brief overlap.
+    if (queryOverviewHits(map, e.point).length) return;
     const hits = map.queryRenderedFeatures(e.point, { layers: HIT });
     if (!hits.length) return;
     openPopup(map, e.lngLat, hits, 0);
@@ -284,7 +302,7 @@ function openPopup(map, lngLat, hits, activeIndex) {
         <ul class="ug-list" id="${ugListId}" ${isDefaultStandort ? '' : 'hidden'}>
           ${subAreas.map((s, i) => {
             const isDefaultSub = isDefaultStandort && i === DEFAULT_VIEW.subAreaIndex;
-            return `<li><button type="button" class="${isDefaultSub ? 'is-active' : ''}" data-bounds='${JSON.stringify(s.bounds)}'>${esc(stripTownPrefix(s.name))}</button></li>`;
+            return `<li><button type="button" id="${navUgId(town.name, s.name)}" class="${isDefaultSub ? 'is-active' : ''}" data-bounds='${JSON.stringify(s.bounds)}'>${esc(stripTownPrefix(s.name))}</button></li>`;
           }).join('')}
         </ul>` : '';
 
@@ -296,7 +314,7 @@ function openPopup(map, lngLat, hits, activeIndex) {
         <li>
           <div class="standort-group">
             <div class="standort-head">
-              <button type="button" class="standort-btn" data-bounds='${JSON.stringify(town.bounds)}' ${subAreas.length ? `data-expand="${ugListId}"` : ''}>
+              <button type="button" id="${navTownId(town.name)}" class="standort-btn" data-bounds='${JSON.stringify(town.bounds)}' ${subAreas.length ? `data-expand="${ugListId}"` : ''}>
                 ${esc(standort.name)} <span class="cnt">${town.weCount} WiE</span>
               </button>${chevHtml}
             </div>${ugListHtml}
@@ -351,11 +369,30 @@ function openPopup(map, lngLat, hits, activeIndex) {
     ${demoNoteHtml}
     ${groupsHtml}`;
 
+  // Reveals every collapsed panel an element sits INSIDE (walking up
+  // ancestors, not down into a descendant - that's what data-expand below is
+  // for). Needed because a row can now be activated from somewhere other
+  // than a click that started inside its own collapsed tree: a map overview
+  // marker (js/overview.js) calls a sidebar button's own .click() directly,
+  // which would otherwise fly correctly but leave .is-active painted on a
+  // row nobody can see (e.g. Ratzeburg's Untergebiete, inside both a
+  // collapsed sc-body AND its own collapsed ug-list).
+  function reveal(el) {
+    for (let p = el.parentElement; p && p !== container; p = p.parentElement) {
+      if (!p.id) continue;
+      const head = container.querySelector(`[aria-controls="${p.id}"]`);
+      if (!head) continue;
+      p.hidden = false;
+      head.setAttribute('aria-expanded', 'true');
+    }
+  }
+
   // Zoom + active-state wiring: every element carrying data-bounds, at any
   // depth (Standort row, Untergebiet row).
   container.querySelectorAll('[data-bounds]').forEach((el) => {
     el.addEventListener('click', (evt) => {
       evt.stopPropagation();
+      reveal(el);
       fly(JSON.parse(el.dataset.bounds));
       setActive(el);
       // Clicking a Standort name also reveals its Untergebiete - one click,

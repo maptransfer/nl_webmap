@@ -251,6 +251,28 @@ details[open] > summary .chev { transform: rotate(90deg); }
 
 /* ---------- layer list ---------- */
 
+/* Shown by js/overview.js while zoomed out past DETAIL_MINZOOM (js/layers.js),
+   when every checkbox below is live but visibly does nothing. Styled like
+   .views-demo-note (same tint pair). Deliberately declares NO `display` of
+   its own - .toast[hidden]'s CSS-specificity bug (PROGRESS.md, v1
+   verification, bug #3) is exactly what happens when an author rule ties
+   the browser's default `[hidden] { display: none }`; leaving this at the
+   default means [hidden] always wins outright. */
+.zoom-note {
+  margin: 0 0 8px;
+  padding: 6px 8px;
+  background: #fbf3f2;
+  border: 1px solid #ecd8d6;
+  border-radius: 5px;
+  color: var(--ui-muted);
+  font-size: 11.5px;
+  line-height: 1.4;
+}
+
+/* Same trigger as .zoom-note's visibility - dims the checkboxes rather than
+   disabling them, so a layer can still be pre-toggled before zooming in. */
+.layer-list.is-dimmed { opacity: .45; transition: opacity .2s ease; }
+
 .layer-list { list-style: none; margin: 0; padding: 0; }
 
 /* 2026-09-09: flat list, no groups, no expandable detail - one row is

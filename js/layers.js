@@ -241,6 +241,18 @@ export const LAYERS = [
 // from it is appended at the end rather than silently dropped.
 export const LEGEND_ORDER = ['we', 'gebaeude_ansicht', 'adressen', 'grundbuch_ansicht', 'flurstuecke'];
 
+// 2026-09-09 (zoom-out generalization): below this zoom the five thematic
+// layers are an illegible speckle over a whole Standort (e.g. Ahrensburg's
+// fitted zoom is ~12.6-13.5 depending on window size - measured live via
+// tools/verify.py's Chrome/CDP classes across seven viewport sizes, not
+// assumed from a formula) - js/overview.js shows clickable Untergebiet/Town
+// markers in that band instead. Every sub-area (Untergebiet) bookmark fits
+// at >=14.8 on the same range of viewports, so 14.0 clears both clusters
+// with margin on each side. buildStyleLayers() below applies this as a
+// floor under every part's own minzoom (Math.max), and js/overview.js
+// imports it so the marker fade-out and this cutoff can never drift apart.
+export const DETAIL_MINZOOM = 14.0;
+
 // ---- derived builders ---------------------------------------------------
 
 /** { we: 'we_id', flurstuecke: 'id', ... } for the vector source's promoteId. */
@@ -260,7 +272,14 @@ export function buildPromoteId(layers) {
  *  its parent entry lives.
  *  A part may set its own `sourceLayer` to read from a different tiled layer
  *  than its parent cfg (used by grundbuch_ansicht's merged label part, which
- *  reads the separately-tiled `flst_grundbuchblaetter` source-layer). */
+ *  reads the separately-tiled `flst_grundbuchblaetter` source-layer).
+ *
+ *  Every emitted layer's minzoom is floored at DETAIL_MINZOOM (Math.max
+ *  against whatever the part itself declares, so grundbuch_ansicht's label
+ *  part keeps its own higher 16) - this is what makes the five thematic
+ *  layers disappear below the zoom-out threshold in favour of
+ *  js/overview.js's markers. The hl-* highlight layers get the same floor:
+ *  a cyan hover outline drawn on a hidden fill would be a rendering bug. */
 export function buildStyleLayers(layers) {
   const out = [];
   const emit = (cfg, part) => {
@@ -271,8 +290,8 @@ export function buildStyleLayers(layers) {
       'source-layer': part.sourceLayer || cfg.sourceLayer,
       layout: { visibility: cfg.defaultVisible ? 'visible' : 'none', ...(part.layout || {}) },
       paint: part.paint,
+      minzoom: Math.max(DETAIL_MINZOOM, part.minzoom ?? 0),
     };
-    if (part.minzoom != null) layer.minzoom = part.minzoom;
     if (part.maxzoom != null) layer.maxzoom = part.maxzoom;
     out.push(layer);
   };
@@ -290,6 +309,7 @@ export function buildStyleLayers(layers) {
       source: 'nl',
       'source-layer': cfg.sourceLayer,
       layout: { 'line-join': 'round', 'line-cap': 'round', visibility: cfg.defaultVisible ? 'visible' : 'none' },
+      minzoom: DETAIL_MINZOOM,
       paint: {
         'line-color': cfg.highlight.color,
         'line-width': cfg.highlight.width,

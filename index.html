@@ -32,6 +32,10 @@
 
     <section class="layers">
       <h2>Ebenen</h2>
+      <!-- Shown/hidden by js/overview.js while zoomed out past DETAIL_MINZOOM
+           (js/layers.js), when the checkboxes below visibly do nothing.
+           No `display` of its own in css/app.css - see the comment there. -->
+      <p id="zoom-note" class="zoom-note" hidden>In dieser Zoomstufe sind die Ebenen ausgeblendet. Zoomen Sie in einen Standort hinein oder wählen Sie oben ein Untergebiet.</p>
       <ul id="layer-list" class="layer-list"><!-- generated from js/layers.js --></ul>
     </section>
 

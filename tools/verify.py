@@ -651,19 +651,31 @@ def check(name, description):
 # expectation, and "DOM matches config" would pass vacuously.
 # ---------------------------------------------------------------------------
 
-@check("map_loads", "Style layers/source match js/layers.js; basemap under it; error banner hidden; a WiE feature renders")
+@check("map_loads", "Style layers/source match js/layers.js + js/overview.js; basemap under it; error banner hidden; a WiE feature renders")
 def check_map_loads(page, a):
     data = page.js("""
       const mod = await import(new URL('js/layers.js', document.baseURI).href);
-      const builtIds = mod.buildStyleLayers(mod.LAYERS).map(l => l.id);
-      const expectedIds = ['bg', 'basemap-osm', ...builtIds];
+      const ov = await import(new URL('js/overview.js', document.baseURI).href);
+      const builtLayers = mod.buildStyleLayers(mod.LAYERS);
+      const overviewLayers = ov.buildOverviewLayers();
+      // {id, minzoom} pairs, not just ids: 2026-09-09's zoom-out
+      // generalization floors every thematic layer's minzoom at
+      // DETAIL_MINZOOM (Math.max against the part's own, if any) - this is
+      // exactly the kind of thing that regresses silently (an inverted
+      // Math.max, or a part losing its minzoom) without ever breaking a
+      // plain id/order comparison.
+      const toPair = l => ({ id: l.id, minzoom: l.minzoom ?? null });
+      const expected = [
+        { id: 'bg', minzoom: null }, { id: 'basemap-osm', minzoom: null },
+        ...builtLayers.map(toPair), ...overviewLayers.map(toPair),
+      ];
       const style = map.getStyle();
       const src = style.sources['nl'];
       const banner = document.getElementById('error-banner');
       return {
         layerCount: mod.LAYERS.length,
-        expectedIds,
-        actualIds: style.layers.map(l => l.id),
+        expected,
+        actual: style.layers.map(toPair),
         srcType: src && src.type,
         promoteIdMatches: JSON.stringify(src && src.promoteId) === JSON.stringify(mod.buildPromoteId(mod.LAYERS)),
         rasterOpacity: map.getPaintProperty('basemap-osm', 'raster-opacity'),
@@ -672,7 +684,9 @@ def check_map_loads(page, a):
       };
     """)
     a.ok(data["layerCount"] > 0, "precondition: js/layers.js LAYERS is non-empty")
-    a.eq(data["actualIds"], data["expectedIds"], "style layer ids/order match ['bg','basemap-osm', ...buildStyleLayers(LAYERS)]")
+    a.eq(data["actual"], data["expected"],
+         "style layer {id, minzoom} pairs/order match "
+         "['bg','basemap-osm', ...buildStyleLayers(LAYERS), ...buildOverviewLayers()]")
     a.eq(data["srcType"], "vector", "'nl' source is a vector source")
     a.ok(data["promoteIdMatches"], "'nl' source promoteId matches buildPromoteId(LAYERS)")
     a.eq(data["rasterOpacity"], 0.5, "basemap-osm raster-opacity is 0.5 (2026-09-08 polish pass)")
@@ -805,6 +819,138 @@ def check_wie_popup_opens(page, a):
         a.eq(popup["scrollTop"], 0, "popup body stayed scrolled to top despite MapLibre's a11y focus-scroll")
     else:
         a.note("popup did not overflow its box here - scrollTop regression guard not exercised")
+
+
+@check("overview_markers", "Zoomed to a full Standort shows one clickable Untergebiet marker per sub-area, wired to the matching sidebar row")
+def check_overview_markers(page, a):
+    # NOTE for a future session: this check (and wie_popup_opens above) rely
+    # on the app's DEFAULT_VIEW landing above DETAIL_MINZOOM - Page.goto()'s
+    # readiness gate needs a rendered WiE feature at whatever view the page
+    # opens on. If DETAIL_MINZOOM is ever raised close to/above a sub-area's
+    # own fitted zoom, or DEFAULT_VIEW is moved to a whole Standort, every
+    # check in this file can start timing out with an unhelpful "page not
+    # ready" - not just this one.
+    setup = page.js("""
+      const mod = await import(new URL('js/layers.js', document.baseURI).href);
+      const bm = await import(new URL('js/bookmarks.js', document.baseURI).href);
+      const town = bm.TOWNS[0];
+      await new Promise((resolve) => {
+        const t = setTimeout(resolve, 3000);
+        map.once('idle', () => { clearTimeout(t); resolve(); });
+        map.fitBounds(town.bounds, { duration: 0 });
+      });
+      return {
+        detailMinzoom: mod.DETAIL_MINZOOM,
+        zoom: map.getZoom(),
+        subAreaCount: town.subAreas.length,
+      };
+    """)
+    a.ok(setup["zoom"] < setup["detailMinzoom"],
+         f"Standort-fit zoom ({setup['zoom']:.2f}) sits below DETAIL_MINZOOM ({setup['detailMinzoom']}) - "
+         "the band this feature exists for is not empty")
+
+    # Sidebar affordance BEFORE any click: hidden/dimmed while zoomed to the
+    # whole Standort, where every layer checkbox is live but visibly does
+    # nothing.
+    affordance_before = page.js("""
+      return {
+        noteHidden: document.getElementById('zoom-note').hidden,
+        dimmed: document.getElementById('layer-list').classList.contains('is-dimmed'),
+      };
+    """)
+    a.ok(not affordance_before["noteHidden"], f"#zoom-note is visible at Standort zoom ({setup['zoom']:.2f}, below DETAIL_MINZOOM)")
+    a.ok(affordance_before["dimmed"], "#layer-list carries .is-dimmed at the same zoom")
+
+    markers = page.js("""
+      const feats = map.queryRenderedFeatures({ layers: ['ov-ug-dot'] });
+      const seen = new Map();
+      for (const f of feats) seen.set(f.properties.navId, f.geometry.coordinates);
+      return [...seen.entries()].map(([navId, coords]) => ({ navId, coords }));
+    """)
+    a.eq(len(markers), setup["subAreaCount"],
+         f"exactly {setup['subAreaCount']} distinct Untergebiet markers render at Standort zoom (one per TOWNS[0].subAreas entry)")
+
+    # Every marker's navId must resolve to a real, correctly-bound sidebar
+    # button - the one cross-module string contract this feature adds
+    # (js/overview.js computes an id that js/app.js must have rendered).
+    # This alone catches an id-contract break with no clicking at all.
+    button_check = page.js("""
+      const mod = await import(new URL('js/bookmarks.js', document.baseURI).href);
+      const town = mod.TOWNS[0];
+      const results = [];
+      for (const sub of town.subAreas) {
+        const util = await import(new URL('js/util.js', document.baseURI).href);
+        const id = util.navUgId(town.name, sub.name);
+        const btn = document.getElementById(id);
+        results.push({
+          id, exists: !!btn,
+          boundsMatch: btn ? btn.dataset.bounds === JSON.stringify(sub.bounds) : false,
+        });
+      }
+      return results;
+    """)
+    for row in button_check:
+        a.ok(row["exists"], f"sidebar button #{row['id']} exists")
+        a.ok(row["boundsMatch"], f"#{row['id']}'s data-bounds matches its TOWNS[].subAreas bounds")
+
+    # Click one real marker via CDP (clickCount:1 on press AND release, or no
+    # `click` fires - see Page.click()). Assert it flies to that sub-area's
+    # OWN bounds (not a hand-typed coordinate), moves .is-active there, opens
+    # no popup, and expands its Untergebiet list if it was collapsed.
+    target = markers[0]
+    proj = page.js(f"""
+      const p = map.project({json.dumps(target['coords'])});
+      const canvas = map.getCanvas();
+      const rect = canvas.getBoundingClientRect();
+      return {{
+        x: p.x, y: p.y,
+        onCanvas: document.elementFromPoint(rect.left + p.x, rect.top + p.y) === canvas,
+      }};
+    """)
+    if not a.ok(proj["onCanvas"], f"marker for navId={target['navId']!r} projects onto the map canvas (not the sidebar)"):
+        return
+
+    page.click(int(proj["x"]), int(proj["y"]))
+    page.js("""
+      await new Promise((resolve) => {
+        const t = setTimeout(resolve, 2000);
+        map.once('moveend', () => { clearTimeout(t); resolve(); });
+      });
+      await new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r)));
+    """)
+
+    after = page.js(f"""
+      const util = await import(new URL('js/util.js', document.baseURI).href);
+      const btn = document.getElementById({json.dumps(target['navId'])});
+      const actives = [...document.querySelectorAll('.is-active')];
+      return {{
+        boundsNow: JSON.stringify([[map.getBounds().getWest(), map.getBounds().getSouth()],
+                                    [map.getBounds().getEast(), map.getBounds().getNorth()]]),
+        targetBounds: btn.dataset.bounds,
+        activeCount: actives.length,
+        activeIsTarget: actives.length === 1 && actives[0] === btn,
+        listHiddenNow: btn.closest('.ug-list') ? btn.closest('.ug-list').hidden : null,
+        popupCount: document.querySelectorAll('.maplibregl-popup').length,
+      }};
+    """)
+    a.ok(after["activeCount"] == 1, f"exactly one .is-active element after the marker click (found {after['activeCount']})")
+    a.ok(after["activeIsTarget"], "the .is-active element is the clicked marker's own sidebar button")
+    a.eq(after["listHiddenNow"], False, "the clicked Untergebiet's own ug-list is not hidden after the click")
+    a.eq(after["popupCount"], 0, "clicking a marker opens no WiE popup")
+
+    # Sidebar affordance AFTER the click: the fly lands inside the sub-area's
+    # own bookmark (>=14.8 on every viewport measured - see js/overview.js's
+    # header comment), well above DETAIL_MINZOOM, so the affordance from
+    # above must have flipped back off.
+    affordance_after = page.js("""
+      return {
+        noteHidden: document.getElementById('zoom-note').hidden,
+        dimmed: document.getElementById('layer-list').classList.contains('is-dimmed'),
+        zoom: map.getZoom(),
+      };
+    """)
+    a.ok(affordance_after["noteHidden"], f"#zoom-note is hidden again at z{affordance_after['zoom']:.2f} (>= DETAIL_MINZOOM) after flying into the sub-area")
+    a.ok(not affordance_after["dimmed"], "#layer-list lost .is-dimmed at the same zoom")
 
 
 # ---------------------------------------------------------------------------
