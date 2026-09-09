@@ -15,8 +15,9 @@ verification harness (`tools/verify.py`), a rebuilt WiE popup matching the
 client's QGIS form, a presentation pass on that popup, the sidebar's
 Standort rows boxed to match that popup group, and a small four-item
 wording/styling polish pass (popup header order, sidebar title casing, demo
-note and tooltip wording) all added 2026-09-08** (see the dated entries
-under "Completed").
+note and tooltip wording) all added 2026-09-08. Sidebar layer list
+simplified to a flat, non-expandable list with two layers merged and two
+renamed, added 2026-09-09** (see the dated entries under "Completed").
 Repo: https://github.com/maptransfer/nl_webmap (public — transferred from
 personal account `TheGeoTheo` to the `maptransfer` org)
 **Live: https://maptransfer.github.io/nl_webmap/** — GitHub Pages, built
@@ -914,6 +915,94 @@ pattern — script itself not committed):
   ("Wird in einem späteren Schritt importiert", "Noch nicht importiert")
   appears anywhere in the page's HTML.
 
+### 2026-09-09 — sidebar layer list simplified (flat, merged, renamed)
+
+**Why:** the client-facing request was to cut explanation out of the layer
+list: no more split between "Abfrageebene" and "Darstellungsebenen", no
+per-row expander revealing swatch + object-count + zoom-range text, two
+layers that read as one thing to the client (`Grundbuchblätter`'s boundary
+line and `Blattnummern`'s sheet-number label) merged onto one switch, two
+renames (`Gebäude` → `nicht-Wohngebäude`, `Adressen` → `Hausnummern`), and a
+specific row order: WiE → nicht-Wohngebäude → Hausnummern → Grundbuchblätter
+→ Flurstücke. The map's draw order and every style value are unchanged —
+this is entirely a sidebar/config change.
+
+**What changed** (three commits — `4da54ee`, `64fc72a`, `d51c79a`):
+- `js/layers.js` — the standalone `flst_grundbuchblaetter` entry is gone;
+  its label part (unchanged: `minzoom: 16`, text ramp, `#626262`) now lives
+  inside `grundbuch_ansicht.parts`, carrying its own `sourceLayer:
+  'flst_grundbuchblaetter'` since the two views are still separately tiled.
+  `LAYERS` is down to 5 entries. `buildStyleLayers()` gained two small
+  extensions to support this: a part's `sourceLayer` now overrides its
+  parent cfg's when present, and symbol (label) parts are hoisted above all
+  fill/line parts as a structural rule — in `LAYERS` order for each group —
+  rather than relying on where an entry sits in the array. This keeps
+  "labels always draw above every fill" true now that one entry
+  (`grundbuch_ansicht`) carries both a line part and a label part.
+  New export `LEGEND_ORDER` (`['we', 'gebaeude_ansicht', 'adressen',
+  'grundbuch_ansicht', 'flurstuecke']`) is the sidebar's own display order,
+  kept separate from `LAYERS`' draw order for the first time — Hausnummern
+  is drawn last on the map but listed third, above Grundbuchblätter.
+  `gebaeude_ansicht.title` → "nicht-Wohngebäude", `adressen.title` →
+  "Hausnummern" (keys/checkbox ids untouched). The merged entry's `legend`
+  array keeps only the grey-line entry (user's choice — the label isn't
+  pictured separately, just toggled by the same row). `count`/`subtitle`
+  stay as config documentation; a comment now says explicitly that neither
+  renders anywhere in the UI.
+- `js/legend.js` — `renderLegend()` no longer splits into headed groups or
+  reverses draw order; it sorts `LAYERS` by `LEGEND_ORDER` (unknown keys
+  appended at the end, so a future layer can't silently vanish from the
+  sidebar). `rowHtml()` emits just `<li>` → checkbox + one swatch
+  (`cfg.legend[0]`) + `<label>` — no expand button, no `.layer-legend`
+  panel, no meta line. `metaLine()`/`isLabelOnly()` and the `.expand`
+  click-wiring are deleted along with the panel they served. The WiE row
+  keeps `.layer-row--primary` (user's explicit choice — with the group
+  headings gone, that accent plus the `.section-hint` sentence are what's
+  left to show which layer answers a click).
+- `index.html` — `.section-hint` shortened to its first sentence (the
+  second sentence described the now-removed group split). `#layer-list`
+  reverted from a `<div>` (one `<ul>` per group) to a plain `<ul>`.
+- `css/app.css` — removed `.layer-group`, `.layer-group-head` (+ `.hint`),
+  `.layer-head .expand*`, `.layer-legend`, `.swatch-row`, `.layer-legend
+  .meta`, `.layer-row--primary .layer-legend`. `.layer-row` absorbed
+  `.layer-head`'s flex/padding/gap and its checkbox/label rules (the
+  `.layer-head` class is gone); `.layer-row--primary`'s rules moved onto
+  the row itself. `.swatch`/`.swatch--line`/`.swatch--label` are unchanged,
+  now rendering directly inside the row.
+
+**Verified** (`tools\verify.bat` plus a scratch CDP script reusing its
+`Chrome`/`CDP`/`Page` classes — script not committed, per the established
+pattern):
+- `tools\verify.bat` 4/4 green before any edit, after each of the three
+  commits, and at the final committed state. `layer_checkboxes_toggle` now
+  runs 22 assertions instead of 26 (5 layers × ~4-5 checks each instead of
+  6), derived live from `js/layers.js` — confirms the merge propagated
+  without editing the harness.
+- Draw-order diff: `buildStyleLayers(LAYERS)` ids compared before/after —
+  identical order except the single expected rename
+  (`flst_grundbuchblaetter-label` → `grundbuch_ansicht-label`); the renamed
+  layer's `source-layer` is still `flst_grundbuchblaetter`.
+- DOM: exactly 5 `.layer-row`, in the order we / gebaeude_ansicht /
+  adressen / grundbuch_ansicht / flurstuecke; titles read
+  "Wirtschaftseinheiten (WiE)", "nicht-Wohngebäude", "Hausnummern",
+  "Grundbuchblätter", "Flurstücke"; zero `.layer-group`, `.layer-group-head`,
+  `.expand` or `.layer-legend` nodes; none of "Objekte" / "nur Darstellung"
+  / "Abfrageebene" / "Darstellungsebenen" / "Blattnummern" appears anywhere
+  in `#layer-list`'s text; exactly one `.swatch` per row; only the `we` row
+  carries `.layer-row--primary`.
+- Layout: no row label wraps (`getClientRects().length === 1` on every
+  one), `#sidebar-body` has no horizontal overflow (`scrollWidth ===
+  clientWidth === 338`).
+- `#cb-grundbuch_ansicht` toggling flips **both** `grundbuch_ansicht-line`
+  and `grundbuch_ansicht-label` together (visible→none→visible).
+- Screenshots: Schäferweg (no Grundbuch labels rendered in that particular
+  small viewport — confirmed pre-existing via a feature-count sweep across
+  all 7 Ahrensburg sub-areas, not a regression: 19 label features render
+  total, 0 of them happen to fall inside Schäferweg's bbox) and Gartenholz
+  / Syltring (multiple "Blatt: ..." labels, e.g. "Blatt: 7497", "Blatt:
+  5236", correctly drawn above the WiE hatch and building fills).
+- Console/network clean apart from the pre-existing favicon 404.
+
 ## Known issues / blockers
 
 - **DB password in `scripts/export_pgis_layers.bat` needs rotating.** The
@@ -945,9 +1034,10 @@ pattern — script itself not committed):
 ## Next steps
 
 None requested. The sidebar/basemap polish pass, the `tools/verify.py`
-harness, the QGIS-form-matching WiE popup, its presentation pass and the
-boxed Standort rows in the sidebar are all built and verified (see the five
-2026-09-08 entries above) — awaiting review or a specific next ask.
+harness, the QGIS-form-matching WiE popup, its presentation pass, the boxed
+Standort rows in the sidebar (2026-09-08), and the flattened/merged/renamed
+layer list (2026-09-09) are all built and verified — awaiting review or a
+specific next ask.
 
 Small things noticed and deliberately left alone:
 - `js/areas.js` is hand-written and will drift silently if the client's org
