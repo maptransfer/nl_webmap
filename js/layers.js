@@ -185,11 +185,22 @@ export const LAYERS = [
     qml: 'qml/v_adressen.qml',
     parts: [
       {
-        id: 'label', type: 'symbol', // no scale limit in QML (scaleVisibility=0)
+        // No scale limit in the QML (scaleVisibility=0) - this part's
+        // minzoom comes only from buildStyleLayers()'s blanket
+        // Math.max(DETAIL_MINZOOM, ...) floor (2026-09-09, zoom-out
+        // generalization), a deliberate web-map generalization decision,
+        // not a QML value. Don't "restore" an unlimited range here.
+        //
+        // 2026-09-09: the size/halo ramps below used to clamp flat at their
+        // first stop (z15 -> 10px text), so house numbers stayed a fixed
+        // size while the map around them kept shrinking - proportionally
+        // huge and cluttered zoomed out. Extended downward so the size
+        // actually falls off across the now-visible [14, 15.5] range too.
+        id: 'label', type: 'symbol',
         layout: {
           'text-field': ['coalesce', ['get', 'hausnummer'], ['get', 'hn_zusatz'], ''],
           'text-font': ['Open Sans Bold'],
-          'text-size': ['interpolate', ['exponential', 2], ['zoom'], 15, 10, 18, 14, 20, 24],
+          'text-size': ['interpolate', ['exponential', 2], ['zoom'], 14, 7, 15.5, 9, 18, 14, 20, 24],
           'text-anchor': 'center',
           'text-allow-overlap': false,
           'text-ignore-placement': false,
@@ -198,7 +209,7 @@ export const LAYERS = [
         paint: {
           'text-color': '#901e1d',
           'text-halo-color': '#fafafa',
-          'text-halo-width': ['interpolate', ['exponential', 2], ['zoom'], 16, 1.2, 18, 2.2, 20, 3],
+          'text-halo-width': ['interpolate', ['exponential', 2], ['zoom'], 14, 0.7, 16, 1.2, 18, 2.2, 20, 3],
           'text-halo-blur': 0,
         },
       },
