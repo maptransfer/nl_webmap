@@ -384,16 +384,16 @@ function openPopup(map, lngLat, hits, activeIndex) {
   });
 })();
 
-// ---- first-load toast: explains the two-town split -----------------------
-(function initHintToast() {
-  const KEY = 'nl_webmap_hint_dismissed';
+// ---- intro card: frames the app as a demo, shown on every load ------------
+// 2026-09-09: replaced the old once-per-browser "two-town split" toast (which
+// suppressed itself via localStorage after first dismissal) - this is sales-
+// demo framing that should appear every time someone opens the site, not
+// just the first. No localStorage involved on purpose.
+(function initIntroModal() {
   const toast = document.getElementById('hint-toast');
   const dismiss = document.getElementById('hint-dismiss');
-  let seen = false;
-  try { seen = localStorage.getItem(KEY) === '1'; } catch (_e) { /* private mode etc. */ }
-  if (!seen) toast.hidden = false;
+  toast.hidden = false;
   dismiss.addEventListener('click', () => {
     toast.hidden = true;
-    try { localStorage.setItem(KEY, '1'); } catch (_e) { /* ignore */ }
   });
 })();
