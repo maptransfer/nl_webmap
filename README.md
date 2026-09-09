@@ -82,6 +82,27 @@ above after re-exporting bookmarks from QGIS. The per-town WE counts
 (`WE_COUNTS` in `tools/bookmarks_to_js.py`) are hardcoded from the source
 data and need updating by hand if the data changes materially.
 
+## Search
+
+The search bar (top centre of the map) finds a Wirtschaftseinheit by its
+WiE-Nr., its Bezeichnung, or its old Aktenzeichen (Alt-Az), tagging each
+result with which field matched, and jumps to it: fits the WiE's own bounds
+(capped at z17), pulses its outline, activates the containing Untergebiet
+in the sidebar, and opens its popup. Like `js/bookmarks.js`, it runs off a
+**generated** index — the frontend has no way to read the source `.fgb`
+files, and the tiles only expose features in loaded tiles, so a global
+search needs this precomputed:
+
+```
+python tools/we_index.py data/we.fgb js/we_index.js
+```
+
+`js/we_index.js` is generated — don't hand-edit it. Re-run the command
+above after re-exporting `we.fgb`; the generator hard-fails on a feature
+count other than 119, a duplicate WiE-Nr., a NULL geometry or an empty
+Bezeichnung, so a data problem is a loud error here rather than a silently
+stale index.
+
 ## Vendored libraries
 
 Everything the page needs is in `vendor/` — no CDN, no npm, works fully

@@ -24,8 +24,12 @@ layer row, and the first-load toast replaced with a centered intro card
 shown on every load). A third same-day pass added zoom-dependent
 generalization (Untergebiet/Town markers replace the five thematic layers
 below a new `DETAIL_MINZOOM`, `tools/verify.py` grew a fifth check), a
-Hausnummern label-size fix, and centered/reworded the intro card** (see the
-dated entries under "Completed").
+Hausnummern label-size fix, and centered/reworded the intro card, all added
+2026-09-09. A fourth same-day addition: a search bar (top centre of the
+map) finding a WiE by WiE-Nr., Bezeichnung, or Alt-Az, tagging which field
+matched, that flies to it/pulses it/opens its popup on selection
+(`tools/verify.py` grew a sixth check, `wie_search`)** (see the dated
+entries under "Completed").
 Repo: https://github.com/maptransfer/nl_webmap (public — transferred from
 personal account `TheGeoTheo` to the `maptransfer` org)
 **Live: https://maptransfer.github.io/nl_webmap/** — GitHub Pages, built
@@ -1290,6 +1294,135 @@ classes — not committed, per the established pattern):
   and legible zoomed out, scaling up smoothly, and byte-for-byte unchanged
   at z18 from before this pass.
 
+### 2026-09-09 — search bar: find a WiE by number, name or Alt-Az
+
+**Why:** the map had no way to answer "show me WiE 0326" or "where is
+AH, Syltring 34-36" without already knowing where to look — a real gap for
+a sales-demo tool. User asked for a top-centre search box that zooms to a
+matched WiE (their suggestion: zoom to its Untergebiet and blink it) and,
+if easy, also matches the WiE description; approved plan additionally
+covered searching the old Aktenzeichen (Alt-Az), tagged per-row so an
+ambiguous match (see below) is never silently mislabeled.
+
+**Data facts established before writing any code** (measured against
+`data/we.fgb`'s 119 features with the OSGeo4W GDAL/Python, not assumed):
+every WiE's bbox centre — and its whole bbox — falls inside exactly one of
+the 11 Untergebiet bookmarks, so "which sidebar row does this WiE belong
+to" needs no fallback branch; WiE bboxes are tiny (15-90m), so an uncapped
+`fitBounds` would land at z18.5-19.5; and **Alt-Az is present on only 41 of
+119 WiE, and 33 of those values collide with a real WiE-Nr.** (WiE 0813's
+Alt-Az is "0144", and WiE 0144 also exists; WiE 0201's Alt-Az is
+multi-valued, "0202 | 0205"; six WiE share Alt-Az "0202"). That last fact
+is why every result row is tagged with which field matched, not just
+decoratively — an untagged "0144" result would be genuinely ambiguous.
+
+1. **`tools/we_index.py` → `js/we_index.js` (generated, committed)** — same
+   pattern as `tools/bookmarks_to_js.py` → `js/bookmarks.js`: the frontend
+   can't read `.fgb` files and the tiles only expose loaded-tile features,
+   so a global search needs a precomputed index. One entry per WiE (`id`,
+   `pad`, `bez`, `az` array, `bounds`). Hard-fails (non-zero exit) on a
+   feature count other than 119, a duplicate `we_id`, a NULL geometry, or
+   an empty `we_bezeichnung` — a future re-export problem becomes a loud
+   generator error, not a silently stale index. Deliberately carries no
+   popup field (the popup is built from the live tile feature on
+   selection, see below) and no Untergebiet reference (resolved at runtime
+   from `js/bookmarks.js`, per the existing "Untergebiete only come from
+   bookmarks.js" rule).
+2. **New `js/search.js`** — matching + dropdown + jump, dependency-injected
+   the same shape as `initOverview(map)`/`renderLegend(map, ...)`:
+   - **Normalisation**: lowercase, fold `straße`/`strasse`/`str.` → `str`
+     *before* squashing punctuation (so "Schmilauer Straße" finds
+     "Schmilauer Str. 3-7"), then two umlaut variants per string/token —
+     ä→ae/ö→oe/ü→ue/ß→ss and NFD-stripped ä→a/ö→o/ü→u/ß→ss — so
+     "Töpferstr", "Toepferstr" and "Topferstr" all find the same WiE.
+     **A real bug caught before it shipped**: the first version folded only
+     the *index* strings this way and left query tokens in their raw,
+     literal-umlaut form, so a query containing an actual umlaut (e.g.
+     "Ostpreußenweg") matched nothing — the ß never got folded to "ss" to
+     compare against the folded index. Caught by the committed
+     `wie_search` check (below) failing on exactly that query; fixed by
+     extracting the umlaut-folding into `foldAe()`/`foldBare()` and running
+     query tokens through both, the same as the index.
+   - **Matching**: query tokens AND'd, six ranking tiers (exact WiE-Nr. >
+     exact Alt-Az > WiE-Nr. prefix > Bezeichnung word-boundary > Bezeichnung
+     substring > Alt-Az prefix), `we_id` ascending as tiebreak. A WiE-Nr.
+     match deliberately outranks an Alt-Az match, given the collision rate
+     above.
+   - **Jump** (on selecting a result): force-shows the `we` layer if its
+     checkbox is off (via the legend's own checkbox `change` handler, not a
+     second `setLayoutProperty` call site); resolves and activates
+     (reveal + `is-active`, no fly) the containing Untergebiet sidebar row
+     through a new `activateAreaForWe` hook `initAreaPicker()` exposes —
+     deliberately **not** the Untergebiet button's own `.click()` (the
+     trick `js/overview.js`'s markers use), since that also flies there and
+     would fight the WiE's own `fitBounds`; flies to the WiE's bounds
+     (`maxZoom: 17`); pulses a new `found` feature-state on/off three times
+     then leaves it **on** (persists, unlike hover); opens the popup via
+     `map.querySourceFeatures()` filtered on `we_id` once `idle` fires, and
+     hands the result to `js/app.js`'s `openPopup()` (now exported and
+     returning its `Popup`) — real tile data, so no popup field is
+     duplicated into the index, and the same grouped-popup code path a map
+     click uses.
+   - **Asymmetric fit padding**: a new `searchFitPadding()` in `js/app.js`
+     adds a top reserve (~300px, clamped to 45% of map height) on top of
+     the existing sidebar-left padding, so the WiE settles into the lower
+     half of the viewport and the auto-opened popup — which MapLibre
+     anchors above the point — lands in the free space above it instead of
+     covering the thing just searched for. Safe because every WiE bbox is
+     tiny, so the z17 cap always decides the zoom regardless of padding.
+3. **`js/layers.js`**: `we`'s `highlight` config gained `foundWidth: 5`
+   (vs. hover's 3); `hl-we`'s paint now switches width/opacity on `found`
+   the same way it already did on `hover`, `any`'d together for opacity so
+   either state shows the outline.
+4. **`js/overview.js`**: `centre(bounds)` exported (was module-private) so
+   `js/search.js` doesn't re-derive the same bbox-centre math a second
+   place.
+5. **`index.html`/`css/app.css`**: `#search` — input, clear button,
+   `role="listbox"` results — with three responsive bands (viewport-centred
+   above 1100px; left-aligned past the sidebar 900-1100px; spanning between
+   the collapsed sidebar toggle and the `NavigationControl` below 900px, the
+   same breakpoint `initSidebarCollapse()` already collapses the sidebar
+   at). `z-index: 26` — above the intro card (25), below the error banner
+   (30).
+6. **`tools/verify.py`**: new sixth check `wie_search` — imports
+   `js/we_index.js` and re-derives the "every WiE resolves to exactly one
+   Untergebiet" invariant at runtime (guards the offline finding above
+   against a future re-export); types a WiE-Nr., a Bezeichnung word and an
+   Alt-Az into `#search-input` and checks each result's tag; selects a
+   result and checks the post-selection state together (zoom, layer
+   visibility, `found` feature-state, popup title, sidebar `.is-active`).
+
+**Verified** (headless Chrome over CDP, `serve_range.py`; scratch scripts
+reusing `tools/verify.py`'s `Chrome`/`CDP`/`Page` classes, not committed,
+per the established pattern):
+- `tools\verify.bat`: 6/6 green, including the new `wie_search` check
+  (19 assertions) and all 5 pre-existing ones unaffected.
+- **Screenshots** at 1440×900, ~1000px and ~700px confirmed: the search box
+  never overlaps the sidebar or the nav control at any of the three
+  responsive bands; a typed query ("0326") shows one tagged result; a
+  three-way collision query ("Syltring") returns all three matching WiE,
+  each tagged Bezeichnung with the correct resolved Untergebiet; selecting
+  a result flies to Ratzeburg (auto-expanding the previously-collapsed
+  ServiceCenter Lübeck group), shows the cyan pulse outline on the correct
+  polygon, and opens the popup with real WiE 0326 data sitting clear of the
+  polygon underneath it.
+- **Umlaut variants**, typed individually and confirmed to all resolve to
+  the same WiE 0181 (Töpferstr. 8): "Töpferstr", "Toepferstr", "Topferstr",
+  "toepferstrasse".
+- **Both real ambiguity cases**, typed and read back row-by-row: "144"
+  returns WiE 0144 tagged WiE-Nr. ranked *above* WiE 0813 tagged
+  "Alt-Az 0144"; "202" returns WiE 0202 tagged WiE-Nr. ranked above all six
+  WiE that carry it as their Alt-Az, each correctly tagged.
+- **Keyboard-only operation**: with the input genuinely focused (an
+  earlier pass of this same manual check sent key events with nothing
+  focused and got a false failure on both counts — recorded here so a
+  future session doesn't rediscover that gotcha), ArrowDown highlights the
+  first row and sets `aria-activedescendant`; Enter selects it and opens
+  the correct popup; Escape closes the dropdown.
+- The `we` layer checkbox switched off before searching came back checked
+  after selecting a result.
+- No console errors across any of the above.
+
 ## Known issues / blockers
 
 - **`W_026M`/`W_05M`/`W_15M` line-width ramps (and the `grundbuch_ansicht`
@@ -1327,13 +1460,14 @@ classes — not committed, per the established pattern):
   carries the same clearance.
 - **No CI, though `tools/verify.py` closes the "nothing is committed" half
   of this** (2026-09-08 — see "Build & test commands" and the dated entry
-  below). Four checks run on demand and gate a commit locally; nothing runs
-  them automatically on push. GitHub Pages deploys from `master` with no
-  Actions workflow, so adding CI is a separate decision, not yet made. The
-  four checks are also a regression *floor*, not full coverage of the app —
-  several candidate checks (sidebar structure, config invariants, CDN/glyph
-  loading, import completeness) were designed and deliberately left out; see
-  the dated entry for which and why.
+  below). Six checks (`tools\verify.bat --list`) run on demand and gate a
+  commit locally; nothing runs them automatically on push. GitHub Pages
+  deploys from `master` with no Actions workflow, so adding CI is a
+  separate decision, not yet made. The checks are also a regression
+  *floor*, not full coverage of the app — several candidate checks
+  (sidebar structure, config invariants, CDN/glyph loading, import
+  completeness) were designed and deliberately left out; see the dated
+  entries for which and why.
 
 ## Next steps
 
@@ -1341,11 +1475,20 @@ None requested. The sidebar/basemap polish pass, the `tools/verify.py`
 harness, the QGIS-form-matching WiE popup, its presentation pass, the boxed
 Standort rows in the sidebar (2026-09-08), the flattened/merged/renamed
 layer list, the four-item client polish pass (label wording, boundary
-label placement, sidebar hint relocation, first-load intro card), and a
+label placement, sidebar hint relocation, first-load intro card), a
 third same-day pass (intro card centering/wording, zoom-dependent
-generalization with Untergebiet/Town markers, Hausnummern label-size fix)
+generalization with Untergebiet/Town markers, Hausnummern label-size fix),
+and a fourth same-day addition (the WiE-Nr./Bezeichnung/Alt-Az search bar)
 — all 2026-09-09 — are all built and verified. Awaiting review or a
 specific next ask.
+
+One deliberately-out-of-scope item from the search bar, not a TODO:
+searching SAP addresses (`adressen_sap`) was considered and turned down —
+it would make single house numbers findable that the Bezeichnung only
+covers as a range ("Scheffelstr. 6" vs. "Scheffelstr. 4-8"), but roughly
+triples `js/we_index.js` (~15KB → ~45KB). A small follow-up if wanted: one
+more `-select`ed field in `tools/we_index.py` plus one more tier in
+`js/search.js`'s `scoreEntry()`.
 
 One deliberately-declined item from the third pass, not a TODO: moving the
 Grundbuchblätter boundary labels fully inside their polygons was
