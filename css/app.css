@@ -261,58 +261,27 @@ details[open] > summary .chev { transform: rotate(90deg); }
 
 .layer-list { list-style: none; margin: 0; padding: 0; }
 
-/* Two groups: the queryable layer, then the display-only ones. Subordinate to
-   the .sidebar h2 rule above - no border, so the groups read as one block. */
-.layer-group + .layer-group { margin-top: 12px; }
-.layer-group-head {
-  font-size: 10.5px;
-  text-transform: uppercase;
-  letter-spacing: .04em;
-  color: var(--ui-muted);
-  font-weight: 600;
-  margin: 0 0 3px;
-}
-.layer-group-head .hint {
-  text-transform: none;
-  letter-spacing: 0;
-  font-weight: 400;
-}
-
+/* 2026-09-09: flat list, no groups, no expandable detail - one row is
+   checkbox + symbol + name. Only the queryable layer still stands out. */
 .layer-row + .layer-row { border-top: 1px solid #f0f0f0; }
-
-/* The queryable layer, set apart from the display-only rows below it. */
-.layer-row--primary {
-  border-left: 3px solid var(--accent);
-  background: rgba(144, 30, 29, .04);
-  border-radius: 4px;
-  padding-bottom: 2px;
-}
-.layer-row--primary .layer-head { padding-left: 7px; }
-.layer-row--primary .layer-head label { font-weight: 600; }
-.layer-row--primary .layer-legend { padding-left: 32px; }
-
-.layer-head {
+.layer-row {
   display: flex;
   align-items: center;
   gap: 8px;
   padding: 6px 2px;
 }
-.layer-head input[type="checkbox"] { flex: 0 0 auto; width: 15px; height: 15px; }
-.layer-head label { flex: 1; cursor: pointer; font-size: 13.5px; }
-.layer-head .expand {
-  flex: 0 0 auto;
-  border: 0;
-  background: none;
-  cursor: pointer;
-  padding: 4px;
-  color: var(--ui-muted);
-  display: flex;
-}
-.layer-head .expand .chev { width: 13px; height: 13px; transition: transform .15s ease; }
-.layer-head .expand[aria-expanded="true"] .chev { transform: rotate(90deg); }
+.layer-row input[type="checkbox"] { flex: 0 0 auto; width: 15px; height: 15px; }
+.layer-row label { flex: 1; cursor: pointer; font-size: 13.5px; }
 
-.layer-legend { padding: 2px 0 10px 25px; }
-.swatch-row { display: flex; align-items: center; gap: 8px; margin: 3px 0; }
+/* The queryable layer, set apart from the rest. */
+.layer-row--primary {
+  border-left: 3px solid var(--accent);
+  background: rgba(144, 30, 29, .04);
+  border-radius: 4px;
+  padding-left: 7px;
+}
+.layer-row--primary label { font-weight: 600; }
+
 .swatch {
   width: 26px;
   height: 15px;
@@ -342,7 +311,6 @@ details[open] > summary .chev { transform: rotate(90deg); }
   font-size: 11px;
   white-space: nowrap;
 }
-.layer-legend .meta { margin: 6px 0 0; color: var(--ui-muted); font-size: 11.5px; }
 
 /* ---------- error banner / toast ---------- */
 
